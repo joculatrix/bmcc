@@ -1,0 +1,16 @@
+fact_helper: function integer ( n: integer, f: integer ) = {
+	if (n == 1 || n == 0) {
+		return f;
+	} else {
+		return fact_helper(n - 1, n * f);
+	}
+}
+
+fact: function integer ( n: integer ) = {
+	return fact_helper(n, 1);
+}
+
+main: function integer () = {
+	print fact(10);
+	return 0;
+}
