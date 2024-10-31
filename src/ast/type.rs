@@ -16,6 +16,33 @@ pub enum Type<'src> {
 	Function(Atomic, Vec<(&'src str, Type<'src>)>),
 }
 
+impl PartialEq for Type<'_> {
+	/// Checks types are the same for semantic typechecking.
+	/// 
+	/// Currently, the sizes of two arrays don't have to be the same for their
+	/// types to be equal -- this allows functions returning or accepting arrays
+	/// to not be forced to specify one size of array.
+	fn eq(&self, other: &Self) -> bool {
+		match (self, other) {
+			(Type::Atomic(left), Type::Atomic(right)) => {
+				left == right
+			}
+			(Type::Array(left, _), Type::Array(right, _)) => {
+				left == right
+			}
+			(Type::Function(left, left_params),
+				Type::Function(right, right_params)) =>
+			{
+				left == right && left_params.iter()
+					.zip(right_params.iter())
+					.fold(true, |eq, (left, right)| eq && (left == right))
+			}
+			_ => false,
+		}
+	}
+}
+
+#[derive(PartialEq)]
 pub enum Atomic {
 	Boolean,
 	Char,
