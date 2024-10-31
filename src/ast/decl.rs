@@ -7,10 +7,23 @@ pub enum Decl<'src> {
 		name: &'src str,
 		r#type: Box<Type<'src>>,
 		rhs: Option<Expr<'src>>,
+		span: Option<SimpleSpan>,
 	},
 	Function {
 		name: &'src str,
 		r#type: Box<Type<'src>>,
 		rhs: Option<Stmt<'src>>,
+		span: Option<SimpleSpan>,
+	}
+}
+
+impl Spanned for Decl<'_> {
+	fn set_span(&mut self, span: SimpleSpan) {
+		let s = match self {
+			Decl::Var { span: s, .. } => s,
+			Decl::Function { span: s, .. } => s,
+		};
+
+		*s = Some(span);
 	}
 }

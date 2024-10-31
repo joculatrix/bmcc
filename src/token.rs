@@ -1,90 +1,148 @@
+use chumsky::span::SimpleSpan;
+use crate::ast::Spanned;
+
+/// Warning: The `Option<SimpleSpan>` must be the last field in ordered tuples
+/// or else the `Spanned` trait will break.
 pub enum Token<'src> {
 	/// `[`
-	BraceLeft,
+	BraceLeft(Option<SimpleSpan>),
 	/// `]`
-	BraceRight,
+	BraceRight(Option<SimpleSpan>),
 	/// `:`
-	Colon,
+	Colon(Option<SimpleSpan>),
 	/// `{`
-	CurlyLeft,
+	CurlyLeft(Option<SimpleSpan>),
 	/// `}`
-	CurlyRight,
+	CurlyRight(Option<SimpleSpan>),
 	/// variable or function identifier
-	Ident(&'src str),
+	Ident(&'src str, Option<SimpleSpan>),
 	/// ASCII char
-	LitChar(char),
+	LitChar(char, Option<SimpleSpan>),
 	/// 64-bit int literal
-	LitInt(i64),
+	LitInt(i64, Option<SimpleSpan>),
 	/// immutable string value
-	LitString(&'src str),
+	LitString(&'src str, Option<SimpleSpan>),
 	/// keyword `array`
-	KwArray,
+	KwArray(Option<SimpleSpan>),
 	/// keyword `boolean`
-	KwBoolean,
+	KwBoolean(Option<SimpleSpan>),
 	/// keyword `char`
-	KwChar,
+	KwChar(Option<SimpleSpan>),
 	/// keyword `else`
-	KwElse,
+	KwElse(Option<SimpleSpan>),
 	/// keyword `false`
-	KwFalse,
+	KwFalse(Option<SimpleSpan>),
 	/// keyword `for`
-	KwFor,
+	KwFor(Option<SimpleSpan>),
 	/// keyword `function`
-	KwFunction,
+	KwFunction(Option<SimpleSpan>),
 	/// keyword `if`
-	KwIf,
+	KwIf(Option<SimpleSpan>),
 	/// keyword `integer`
-	KwInteger,
+	KwInteger(Option<SimpleSpan>),
 	/// keyword `print`
-	KwPrint,
+	KwPrint(Option<SimpleSpan>),
 	/// keyword `return`
-	KwReturn,
+	KwReturn(Option<SimpleSpan>),
 	/// keyword `string`
-	KwString,
+	KwString(Option<SimpleSpan>),
 	/// keyword `true`
-	KwTrue,
+	KwTrue(Option<SimpleSpan>),
 	/// keyword `void`
-	KwVoid,
+	KwVoid(Option<SimpleSpan>),
 	/// `+`
-	OpAdd,
+	OpAdd(Option<SimpleSpan>),
 	/// `&&`
-	OpAnd,
+	OpAnd(Option<SimpleSpan>),
 	/// `=`
-	OpAssign,
+	OpAssign(Option<SimpleSpan>),
 	/// `--`
-	OpDec,
+	OpDec(Option<SimpleSpan>),
 	/// `/`
-	OpDiv,
+	OpDiv(Option<SimpleSpan>),
 	/// `==`
-	OpEq,
+	OpEq(Option<SimpleSpan>),
 	/// `^`
-	OpExp,
+	OpExp(Option<SimpleSpan>),
 	/// `>`
-	OpGreater,
+	OpGreater(Option<SimpleSpan>),
 	/// `>=`
-	OpGreaterEq,
+	OpGreaterEq(Option<SimpleSpan>),
 	/// `++`
-	OpInc,
+	OpInc(Option<SimpleSpan>),
 	/// `<`
-	OpLess,
+	OpLess(Option<SimpleSpan>),
 	/// `<=`
-	OpLessEq,
+	OpLessEq(Option<SimpleSpan>),
 	/// `%`
-	OpMod,
+	OpMod(Option<SimpleSpan>),
 	/// `*`
-	OpMul,
+	OpMul(Option<SimpleSpan>),
 	/// `!`
-	OpNot,
+	OpNot(Option<SimpleSpan>),
 	/// `!=`
-	OpNotEq,
+	OpNotEq(Option<SimpleSpan>),
 	/// `||`
-	OpOr,
+	OpOr(Option<SimpleSpan>),
 	/// `-`
-	OpSub,
+	OpSub(Option<SimpleSpan>),
 	/// `(`
-	ParenLeft,
+	ParenLeft(Option<SimpleSpan>),
 	/// `)`
-	ParenRight,
+	ParenRight(Option<SimpleSpan>),
 	/// `;`
-	Semicolon,
+	Semicolon(Option<SimpleSpan>),
+}
+
+impl Spanned for Token<'_> {
+	fn set_span(&mut self, span: SimpleSpan) {
+		let s = match self {
+			Token::BraceLeft(.., s) => s,
+			Token::BraceRight(.., s) => s,
+			Token::Colon(.., s) => s,
+			Token::CurlyLeft(.., s) => s,
+			Token::CurlyRight(.., s) => s,
+			Token::Ident(.., s) => s,
+			Token::LitChar(.., s) => s,
+			Token::LitInt(.., s) => s,
+			Token::LitString(.., s) => s,
+			Token::KwArray(.., s) => s,
+			Token::KwBoolean(.., s) => s,
+			Token::KwChar(.., s) => s,
+			Token::KwElse(.., s) => s,
+			Token::KwFalse(.., s) => s,
+			Token::KwFor(.., s) => s,
+			Token::KwFunction(.., s) => s,
+			Token::KwIf(.., s) => s,
+			Token::KwInteger(.., s) => s,
+			Token::KwPrint(.., s) => s,
+			Token::KwReturn(.., s) => s,
+			Token::KwString(.., s) => s,
+			Token::KwTrue(.., s) => s,
+			Token::KwVoid(.., s) => s,
+			Token::OpAdd(.., s) => s,
+			Token::OpAnd(.., s) => s,
+			Token::OpAssign(.., s) => s,
+			Token::OpDec(.., s) => s,
+			Token::OpDiv(.., s) => s,
+			Token::OpEq(.., s) => s,
+			Token::OpExp(.., s) => s,
+			Token::OpGreater(.., s) => s,
+			Token::OpGreaterEq(.., s) => s,
+			Token::OpInc(.., s) => s,
+			Token::OpLess(.., s) => s,
+			Token::OpLessEq(.., s) => s,
+			Token::OpMod(.., s) => s,
+			Token::OpMul(.., s) => s,
+			Token::OpNot(.., s) => s,
+			Token::OpNotEq(.., s) => s,
+			Token::OpOr(.., s) => s,
+			Token::OpSub(.., s) => s,
+			Token::ParenLeft(.., s) => s,
+			Token::ParenRight(.., s) => s,
+			Token::Semicolon(.., s) => s,
+		};
+
+		*s = Some(span);
+	}
 }
