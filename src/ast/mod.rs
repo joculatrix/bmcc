@@ -12,5 +12,5 @@ pub use self::r#type::Atomic;
 use chumsky::span::SimpleSpan;
 
 pub trait Spanned {
-	fn set_span(&mut self, span: SimpleSpan);
+	fn with_span(self, span: SimpleSpan) -> Self;
 }

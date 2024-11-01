@@ -47,14 +47,12 @@ impl PartialEq for Type<'_> {
 }
 
 impl Spanned for Type<'_> {
-	fn set_span(&mut self, span: SimpleSpan) {
-		let s = match self {
-			Type::Atomic(.., s) => s,
-			Type::Array(.., s) => s,
-			Type::Function(.., s) => s,
-		};
-
-		*s = Some(span);
+	fn with_span(self, span: SimpleSpan) -> Self {
+		match self {
+			Type::Atomic(a, _) => Type::Atomic(a, Some(span)),
+			Type::Array(a, b, _) => Type::Array(a, b, Some(span)),
+			Type::Function(a, b, _) => Type::Function(a, b, Some(span)),
+		}
 	}
 }
 
