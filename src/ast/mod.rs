@@ -1,4 +1,4 @@
-mod decl;
+pub mod decl;
 mod expr;
 mod stmt;
 mod r#type;
@@ -13,4 +13,5 @@ use chumsky::span::SimpleSpan;
 
 pub trait Spanned {
 	fn with_span(self, span: SimpleSpan) -> Self;
+	fn get_span(&self) -> Option<SimpleSpan>;
 }

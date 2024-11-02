@@ -89,4 +89,35 @@ impl Spanned for Expr<'_> {
 			Expr::Array(a, _) => Expr::Array(a, Some(span)),
 		}
 	}
+
+	fn get_span(&self) -> Option<SimpleSpan> {
+		match self {
+			Expr::Ident(.., s) => *s,
+			Expr::BoolLit(.., s) => *s,
+			Expr::CharLit(.., s) => *s,
+			Expr::IntLit(.., s) => *s,
+			Expr::StrLit(.., s) => *s,
+			Expr::Index(.., s) => *s,
+			Expr::Add(.., s) => *s,
+			Expr::Sub(.., s) => *s,
+			Expr::Mul(.., s) => *s,
+			Expr::Div(.., s) => *s,
+			Expr::Exp(.., s) => *s,
+			Expr::Mod(.., s) => *s,
+			Expr::Inc(.., s) => *s,
+			Expr::Dec(.., s) => *s,
+			Expr::Neg(.., s) => *s,
+			Expr::Eq(.., s) => *s,
+			Expr::NotEq(.., s) => *s,
+			Expr::Less(.., s) => *s,
+			Expr::LessEq(.., s) => *s,
+			Expr::Greater(.., s) => *s,
+			Expr::GreaterEq(.., s) => *s,
+			Expr::And(.., s) => *s,
+			Expr::Or(.., s) => *s,
+			Expr::Not(.., s) => *s,
+			Expr::Call(.., s) => *s,
+			Expr::Array(.., s) => *s,
+		}
+	}
 }

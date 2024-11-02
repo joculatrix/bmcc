@@ -1,7 +1,9 @@
 use super::*;
 use extra::Err;
 
-fn lex<'src>()
+use Keyword::*;
+
+pub fn lex<'src>()
 -> impl Parser<'src, &'src str, Vec<Token<'src>>, Err<Rich<'src, char>>> {
 	// handles escaped characters
 	let escape = just('\\').ignore_then(
@@ -85,20 +87,20 @@ fn lex<'src>()
 		});
 
 	let ident = text::ascii::ident().map(|ident| match ident {
-		"array" => Token::KwArray(None),
-		"boolean" => Token::KwBoolean(None),
-		"char" => Token::KwChar(None),
-		"else" => Token::KwElse(None),
-		"false" => Token::KwFalse(None),
-		"for" => Token::KwFor(None),
-		"function" => Token::KwFunction(None),
-		"if" => Token::KwIf(None),
-		"integer" => Token::KwInteger(None),
-		"print" => Token::KwPrint(None),
-		"return" => Token::KwReturn(None),
-		"string" => Token::KwString(None),
-		"true" => Token::KwTrue(None),
-		"void" => Token::KwVoid(None),
+		"array" => Token::Keyword(Array, None),
+		"boolean" => Token::Keyword(Boolean, None),
+		"char" => Token::Keyword(Char, None),
+		"else" => Token::Keyword(Else, None),
+		"false" => Token::Keyword(False, None),
+		"for" => Token::Keyword(For, None),
+		"function" => Token::Keyword(Function, None),
+		"if" => Token::Keyword(If, None),
+		"integer" => Token::Keyword(Integer, None),
+		"print" => Token::Keyword(Print, None),
+		"return" => Token::Keyword(Return, None),
+		"string" => Token::Keyword(r#String, None),
+		"true" => Token::Keyword(True, None),
+		"void" => Token::Keyword(Void, None),
 		_ => Token::Ident(ident, None),
 	})
 		.map_with(|t, e| t.with_span(e.span()));
@@ -117,24 +119,24 @@ fn lex<'src>()
 		.map_with(|t, e| t.with_span(e.span()));
 
 	let op = choice((
-		just("==").to(Token::OpEq(None)),
-		just("=").to(Token::OpAssign(None)),
-		just("!=").to(Token::OpNotEq(None)),
-		just("!").to(Token::OpNot(None)),
-		just("<=").to(Token::OpLessEq(None)),
-		just("<").to(Token::OpLess(None)),
-		just(">=").to(Token::OpGreaterEq(None)),
-		just(">").to(Token::OpGreater(None)),
-		just("&&").to(Token::OpAdd(None)),
-		just("||").to(Token::OpOr(None)),
-		just("++").to(Token::OpInc(None)),
-		just("+").to(Token::OpAdd(None)),
-		just("--").to(Token::OpDec(None)),
-		just("-").to(Token::OpSub(None)),
-		just("*").to(Token::OpMul(None)),
-		just("/").to(Token::OpDiv(None)),
-		just("^").to(Token::OpExp(None)),
-		just("%").to(Token::OpMod(None)),
+		just("==").to(Token::Operator(Op::Eq, None)),
+		just("=").to(Token::Operator(Op::Assign, None)),
+		just("!=").to(Token::Operator(Op::NotEq, None)),
+		just("!").to(Token::Operator(Op::Not, None)),
+		just("<=").to(Token::Operator(Op::LessEq, None)),
+		just("<").to(Token::Operator(Op::Less, None)),
+		just(">=").to(Token::Operator(Op::GreaterEq, None)),
+		just(">").to(Token::Operator(Op::Greater, None)),
+		just("&&").to(Token::Operator(Op::And, None)),
+		just("||").to(Token::Operator(Op::Or, None)),
+		just("++").to(Token::Operator(Op::Inc, None)),
+		just("+").to(Token::Operator(Op::Add, None)),
+		just("--").to(Token::Operator(Op::Dec, None)),
+		just("-").to(Token::Operator(Op::Sub, None)),
+		just("*").to(Token::Operator(Op::Mul, None)),
+		just("/").to(Token::Operator(Op::Div, None)),
+		just("^").to(Token::Operator(Op::Exp, None)),
+		just("%").to(Token::Operator(Op::Mod, None)),
 	))
 		.map_with(|t, e| t.with_span(e.span()));
 

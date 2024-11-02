@@ -49,4 +49,17 @@ impl Spanned for Stmt<'_> {
 			Stmt::Block(a, _) => Stmt::Block(a, Some(span)),
 		}
 	}
+
+	fn get_span(&self) -> Option<SimpleSpan> {
+		match self {
+			Stmt::Decl(.., s) => *s,
+			Stmt::Expr(.., s) => *s,
+			Stmt::If(.., s) => *s,
+			Stmt::IfElse(IfElse { span: s, .. }) => *s,
+			Stmt::For(For { span: s, .. }) => *s,
+			Stmt::Print(.., s) => *s,
+			Stmt::Return(.., s) => *s,
+			Stmt::Block(.., s) => *s,
+		}
+	}
 }

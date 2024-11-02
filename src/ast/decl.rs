@@ -8,10 +8,10 @@ pub enum Decl<'src> {
 }
 
 pub struct Var<'src> {
-	name: &'src str,
-	r#type: Box<Type<'src>>,
-	rhs: Option<Expr<'src>>,
-	span: Option<SimpleSpan>,
+	pub name: &'src str,
+	pub r#type: Box<Type<'src>>,
+	pub rhs: Option<Expr<'src>>,
+	pub span: Option<SimpleSpan>,
 }
 
 pub struct Function<'src> {
@@ -28,6 +28,13 @@ impl Spanned for Decl<'_> {
 			Decl::Function(f) => Decl::Function(
 				Function { span: Some(span), ..f }
 			),
+		}
+	}
+
+	fn get_span(&self) -> Option<SimpleSpan> {
+		match self {
+			Decl::Var(Var { span: s, .. }) => *s,
+			Decl::Function(Function { span: s, .. }) => *s,
 		}
 	}
 }

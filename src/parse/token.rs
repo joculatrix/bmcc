@@ -1,7 +1,7 @@
-use chumsky::{error::Simple, span::SimpleSpan};
+use chumsky::span::SimpleSpan;
 use crate::ast::Spanned;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 /// Warning: The `Option<SimpleSpan>` must be the last field in ordered tuples
 /// or else the `Spanned` trait will break.
 pub enum Token<'src> {
@@ -27,70 +27,10 @@ pub enum Token<'src> {
 	LitInt(i64, Option<SimpleSpan>),
 	/// immutable string value
 	LitString(&'src str, Option<SimpleSpan>),
-	/// keyword `array`
-	KwArray(Option<SimpleSpan>),
-	/// keyword `boolean`
-	KwBoolean(Option<SimpleSpan>),
-	/// keyword `char`
-	KwChar(Option<SimpleSpan>),
-	/// keyword `else`
-	KwElse(Option<SimpleSpan>),
-	/// keyword `false`
-	KwFalse(Option<SimpleSpan>),
-	/// keyword `for`
-	KwFor(Option<SimpleSpan>),
-	/// keyword `function`
-	KwFunction(Option<SimpleSpan>),
-	/// keyword `if`
-	KwIf(Option<SimpleSpan>),
-	/// keyword `integer`
-	KwInteger(Option<SimpleSpan>),
-	/// keyword `print`
-	KwPrint(Option<SimpleSpan>),
-	/// keyword `return`
-	KwReturn(Option<SimpleSpan>),
-	/// keyword `string`
-	KwString(Option<SimpleSpan>),
-	/// keyword `true`
-	KwTrue(Option<SimpleSpan>),
-	/// keyword `void`
-	KwVoid(Option<SimpleSpan>),
-	/// `+`
-	OpAdd(Option<SimpleSpan>),
-	/// `&&`
-	OpAnd(Option<SimpleSpan>),
-	/// `=`
-	OpAssign(Option<SimpleSpan>),
-	/// `--`
-	OpDec(Option<SimpleSpan>),
-	/// `/`
-	OpDiv(Option<SimpleSpan>),
-	/// `==`
-	OpEq(Option<SimpleSpan>),
-	/// `^`
-	OpExp(Option<SimpleSpan>),
-	/// `>`
-	OpGreater(Option<SimpleSpan>),
-	/// `>=`
-	OpGreaterEq(Option<SimpleSpan>),
-	/// `++`
-	OpInc(Option<SimpleSpan>),
-	/// `<`
-	OpLess(Option<SimpleSpan>),
-	/// `<=`
-	OpLessEq(Option<SimpleSpan>),
-	/// `%`
-	OpMod(Option<SimpleSpan>),
-	/// `*`
-	OpMul(Option<SimpleSpan>),
-	/// `!`
-	OpNot(Option<SimpleSpan>),
-	/// `!=`
-	OpNotEq(Option<SimpleSpan>),
-	/// `||`
-	OpOr(Option<SimpleSpan>),
-	/// `-`
-	OpSub(Option<SimpleSpan>),
+	/// keywords
+	Keyword(Keyword, Option<SimpleSpan>),
+	/// operators
+	Operator(Op, Option<SimpleSpan>),
 	/// `(`
 	ParenLeft(Option<SimpleSpan>),
 	/// `)`
@@ -99,55 +39,163 @@ pub enum Token<'src> {
 	Semicolon(Option<SimpleSpan>),
 }
 
+#[derive(Clone, PartialEq)]
+pub enum Keyword {
+	Array,
+	Boolean,
+	Char,
+	Else,
+	False,
+	For,
+	Function,
+	If,
+	Integer,
+	Print,
+	Return,
+	r#String,
+	True,
+	Void,
+	While,
+}
+
+#[derive(Clone, PartialEq)]
+pub enum Op {
+	/// `+`
+	Add,
+	/// `&&`
+	And,
+	/// `=`
+	Assign,
+	/// `--`
+	Dec,
+	/// `/`
+	Div,
+	/// `==`
+	Eq,
+	/// `^`
+	Exp,
+	/// `>`
+	Greater,
+	/// `>=`
+	GreaterEq,
+	/// `++`
+	Inc,
+	/// `<`
+	Less,
+	/// `<=`
+	LessEq,
+	/// `%`
+	Mod,
+	/// `*`
+	Mul,
+	/// `!`
+	Not,
+	/// `!=`
+	NotEq,
+	/// `||`
+	Or,
+	/// `-`
+	Sub,
+}
+
+impl std::fmt::Display for Token<'_> {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			Token::BraceLeft(..) => write!(f, "`[`"),
+			Token::BraceRight(..) => write!(f, "`]`"),
+			Token::Comma(..) => write!(f, "`,`"),
+			Token::Colon(..) => write!(f, "`:`"),
+			Token::CurlyLeft(..) => write!(f, "`{{`"),
+			Token::CurlyRight(..) => write!(f, "`}}`"),
+			Token::Error(..) => write!(f, "ERROR"),
+			Token::Ident(..) => write!(f, "identifier"),
+			Token::LitChar(..) => write!(f, "char literal"),
+			Token::LitInt(..) => write!(f, "integer literal"),
+			Token::LitString(..) => write!(f, "string literal"),
+			Token::Keyword(k, ..) => match k {
+				Keyword::Array => write!(f, "`array`"),
+				Keyword::Boolean => write!(f, "`boolean`"),
+				Keyword::Char => write!(f, "`char`"),
+				Keyword::Else => write!(f, "`else`"),
+				Keyword::False => write!(f, "`false`"),
+				Keyword::For => write!(f, "`for`"),
+				Keyword::Function => write!(f, "`function`"),
+				Keyword::If => write!(f, "`if`"),
+				Keyword::Integer => write!(f, "`integer`"),
+				Keyword::Print => write!(f, "`print`"),
+				Keyword::Return => write!(f, "`return`"),
+				Keyword::r#String => write!(f, "`string`"),
+				Keyword::True => write!(f, "`true`"),
+				Keyword::Void => write!(f, "`void`"),
+				Keyword::While => write!(f, "`while`"),
+			}
+			Token::Operator(op, ..) => match op {
+				Op::Add => write!(f, "`+`"),
+				Op::And => write!(f, "`&&`"),
+				Op::Assign => write!(f, "`=`"),
+				Op::Dec => write!(f, "`--`"),
+				Op::Div => write!(f, "`/`"),
+				Op::Eq => write!(f, "`==`"),
+				Op::Exp => write!(f, "`^`"),
+				Op::Greater => write!(f, "`>`"),
+				Op::GreaterEq => write!(f, "`>=`"),
+				Op::Inc => write!(f, "`++`"),
+				Op::Less => write!(f, "`<`"),
+				Op::LessEq => write!(f, "`<=`"),
+				Op::Mod => write!(f, "`%`"),
+				Op::Mul => write!(f, "`*`"),
+				Op::Not => write!(f, "`!`"),
+				Op::NotEq => write!(f, "`!=`"),
+				Op::Or => write!(f, "`||`"),
+				Op::Sub => write!(f, "`-`"),
+			},
+			Token::ParenLeft(..) => write!(f, "`(`"),
+			Token::ParenRight(..) => write!(f, "`)`"),
+			Token::Semicolon(..) => write!(f, "`;`"),
+		}
+	}
+}
+
 impl Spanned for Token<'_> {
 	fn with_span(self, span: SimpleSpan) -> Self {
 		match self {
 			Token::BraceLeft(_) => Token::BraceLeft(Some(span)),
-			Token::BraceRight(simple_span) => todo!(),
-			Token::Comma(simple_span) => todo!(),
-			Token::Colon(simple_span) => todo!(),
-			Token::CurlyLeft(simple_span) => todo!(),
-			Token::CurlyRight(simple_span) => todo!(),
-			Token::Error(simple_span) => todo!(),
-			Token::Ident(_, simple_span) => todo!(),
-			Token::LitChar(_, simple_span) => todo!(),
-			Token::LitInt(_, simple_span) => todo!(),
-			Token::LitString(_, simple_span) => todo!(),
-			Token::KwArray(simple_span) => todo!(),
-			Token::KwBoolean(simple_span) => todo!(),
-			Token::KwChar(simple_span) => todo!(),
-			Token::KwElse(simple_span) => todo!(),
-			Token::KwFalse(simple_span) => todo!(),
-			Token::KwFor(simple_span) => todo!(),
-			Token::KwFunction(simple_span) => todo!(),
-			Token::KwIf(simple_span) => todo!(),
-			Token::KwInteger(simple_span) => todo!(),
-			Token::KwPrint(simple_span) => todo!(),
-			Token::KwReturn(simple_span) => todo!(),
-			Token::KwString(simple_span) => todo!(),
-			Token::KwTrue(simple_span) => todo!(),
-			Token::KwVoid(simple_span) => todo!(),
-			Token::OpAdd(simple_span) => todo!(),
-			Token::OpAnd(simple_span) => todo!(),
-			Token::OpAssign(simple_span) => todo!(),
-			Token::OpDec(simple_span) => todo!(),
-			Token::OpDiv(simple_span) => todo!(),
-			Token::OpEq(simple_span) => todo!(),
-			Token::OpExp(simple_span) => todo!(),
-			Token::OpGreater(simple_span) => todo!(),
-			Token::OpGreaterEq(simple_span) => todo!(),
-			Token::OpInc(simple_span) => todo!(),
-			Token::OpLess(simple_span) => todo!(),
-			Token::OpLessEq(simple_span) => todo!(),
-			Token::OpMod(simple_span) => todo!(),
-			Token::OpMul(simple_span) => todo!(),
-			Token::OpNot(simple_span) => todo!(),
-			Token::OpNotEq(simple_span) => todo!(),
-			Token::OpOr(simple_span) => todo!(),
-			Token::OpSub(simple_span) => todo!(),
-			Token::ParenLeft(simple_span) => todo!(),
-			Token::ParenRight(simple_span) => todo!(),
-			Token::Semicolon(simple_span) => todo!(),
+			Token::BraceRight(_) => Token::BraceRight(Some(span)),
+			Token::Comma(_) => Token::Comma(Some(span)),
+			Token::Colon(_) => Token::Colon(Some(span)),
+			Token::CurlyLeft(_) => Token::CurlyLeft(Some(span)),
+			Token::CurlyRight(_) => Token::CurlyRight(Some(span)),
+			Token::Error(_) => Token::Error(Some(span)),
+			Token::Ident(a, _) => Token::Ident(a, Some(span)),
+			Token::LitChar(a, _) => Token::LitChar(a, Some(span)),
+			Token::LitInt(a, _) => Token::LitInt(a, Some(span)),
+			Token::LitString(a, _) => Token::LitString(a, Some(span)),
+			Token::Keyword(a, _) => Token::Keyword(a, Some(span)),
+			Token::Operator(a, _) => Token::Operator(a, Some(span)),
+			Token::ParenLeft(_) => Token::ParenLeft(Some(span)),
+			Token::ParenRight(_) => Token::ParenRight(Some(span)),
+			Token::Semicolon(_) => Token::Semicolon(Some(span)),
+		}
+	}
+
+	fn get_span(&self) -> Option<SimpleSpan> {
+		match self {
+			Token::BraceLeft(.., s) => *s,
+			Token::BraceRight(.., s) => *s,
+			Token::Comma(.., s) => *s,
+			Token::Colon(.., s) => *s,
+			Token::CurlyLeft(.., s) => *s,
+			Token::CurlyRight(.., s) => *s,
+			Token::Error(.., s) => *s,
+			Token::Ident(.., s) => *s,
+			Token::LitChar(.., s) => *s,
+			Token::LitInt(.., s) => *s,
+			Token::LitString(.., s) => *s,
+			Token::Keyword(.., s) => *s,
+			Token::Operator(.., s) => *s,
+			Token::ParenLeft(.., s) => *s,
+			Token::ParenRight(.., s) => *s,
+			Token::Semicolon(.., s) => *s,
 		}
 	}
 }

@@ -54,6 +54,14 @@ impl Spanned for Type<'_> {
 			Type::Function(a, b, _) => Type::Function(a, b, Some(span)),
 		}
 	}
+
+	fn get_span(&self) -> Option<SimpleSpan> {
+		match self {
+			Type::Atomic(.., s) => *s,
+			Type::Array(.., s) => *s,
+			Type::Function(.., s) => *s,
+		}
+	}
 }
 
 #[derive(PartialEq)]
