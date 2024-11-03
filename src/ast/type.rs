@@ -15,9 +15,9 @@ pub enum Type<'src> {
 	/// 
 	/// ### Fields
 	/// 
-	/// * `0` ([`Atomic`]) - the return type of the function
+	/// * `0` ([`Type<'src>`]) - the return type of the function
 	/// * `1` (`Vec<(&str, Type)>`) - the parameters of the function (name, type)
-	Function(Atomic, Vec<(&'src str, Type<'src>)>, Option<SimpleSpan>),
+	Function(Box<Type<'src>>, Vec<(&'src str, Type<'src>)>, Option<SimpleSpan>),
 }
 
 impl PartialEq for Type<'_> {

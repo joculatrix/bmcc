@@ -15,10 +15,10 @@ pub struct Var<'src> {
 }
 
 pub struct Function<'src> {
-	name: &'src str,
-	r#type: Box<Type<'src>>,
-	rhs: Option<Stmt<'src>>,
-	span: Option<SimpleSpan>,
+	pub name: &'src str,
+	pub r#type: Box<Type<'src>>,
+	pub rhs: Option<Stmt<'src>>,
+	pub span: Option<SimpleSpan>,
 }
 
 impl Spanned for Decl<'_> {
