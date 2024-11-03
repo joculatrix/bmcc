@@ -101,6 +101,7 @@ pub fn lex<'src>()
 		"string" => Token::Keyword(r#String, None),
 		"true" => Token::Keyword(True, None),
 		"void" => Token::Keyword(Void, None),
+		"while" => Token::Keyword(While, None),
 		_ => Token::Ident(ident, None),
 	})
 		.map_with(|t, e| t.with_span(e.span()));

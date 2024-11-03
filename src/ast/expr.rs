@@ -1,5 +1,6 @@
 use super::*;
 
+#[derive(Clone)]
 /// AST type for B-Minor expressions.
 /// 
 /// Note: Arithmetic operations in B-Minor can only be performed on integers.

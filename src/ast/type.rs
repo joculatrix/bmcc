@@ -1,5 +1,6 @@
 use super::*;
 
+#[derive(Clone)]
 /// Warning: The `Option<SimpleSpan>` must be the last field in ordered tuples
 /// or else the `Spanned` trait will break.
 pub enum Type<'src> {
@@ -64,7 +65,7 @@ impl Spanned for Type<'_> {
 	}
 }
 
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum Atomic {
 	Boolean,
 	Char,

@@ -1,7 +1,7 @@
 pub mod decl;
-mod expr;
-mod stmt;
-mod r#type;
+pub mod expr;
+pub mod stmt;
+pub mod r#type;
 
 pub use self::decl::Decl;
 pub use self::expr::Expr;
