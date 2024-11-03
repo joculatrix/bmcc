@@ -3,59 +3,6 @@ use chumsky::input::Stream;
 use decl::Function;
 use extra::Err;
 
-/// Convenience macro to ignore filler tokens the AST doesn't care about.
-/// 
-/// # Examples
-/// 
-/// ```ignore
-/// let parser = discard!(Token::Semicolon(..));
-/// ```
-/// 
-/// expands to:
-/// 
-/// ```ignore
-/// let parser =
-/// 	custom(|input| {
-/// 		let Some(token) = input.next() else {
-/// 			return Err(Rich::custom(SimpleSpan::splat(0), "unexpected EOF"));
-/// 		};
-/// 	
-/// 		match token {
-/// 			Token::Semicolon(..) => Ok(()),
-/// 			_ => {
-/// 				let _span = match token.get_span() {
-/// 					Some(span) => span,
-/// 					None => SimpleSpan::splat(0),
-/// 				};
-/// 				todo!();
-/// 			}
-/// 		}
-/// 	})
-/// 	.ignored()
-/// ```
-macro_rules! discard {
-	($p:pat) => {
-		custom(|input| {
-			let Some(token) = input.next() else {
-				return Err(Rich::custom(SimpleSpan::splat(0), "unexpected EOF"));
-			};
-
-			match token {
-				$p => Ok(()),
-				_ => {
-					let _span = match token.get_span() {
-						Some(span) => span,
-						None => SimpleSpan::splat(0),
-					};
-					// figure out how to construct a useful error from within
-					// the macro...
-					todo!();
-				}
-			}
-		})
-		.ignored()
-	};
-}
 
 pub fn parser<'src>()
 -> impl Parser<'src, &'src [Token<'src>], Vec<Decl>, Err<Rich<'src, Token<'src>>>> {
@@ -69,20 +16,28 @@ fn ident<'src>()
 	select!{ Token::Ident(id, _span) => id }.labelled("identifier")
 }
 
-fn decl_func<'src>()
+/// DECL_FN     ::= ident `:` FN_TYPE `;`
+///               | ident `:` FN_TYPE `=` STMT
+/// 
+/// FN_TYPE     ::= `function` VAR_TYPE PARAMS_LIST
+/// 
+/// PARAMS_LIST ::= `(` (ident `:` VAR_TYPE (`,` ident `:` VAR_TYPE )*)? `)`
+fn decl_fn<'src>()
 -> impl Parser<'src, &'src [Token<'src>], Decl<'src>, Err<Rich<'src, Token<'src>>>> {
+	// PARAMS_LIST ::= `(` (ident `:` VAR_TYPE (`,` ident `:` VAR_TYPE )*)? `)`
 	let params_list = ident()
-		.then_ignore(discard!(Token::Colon(..)))
+		.then_ignore(select!{ Token::Colon(..) => () })
 		.then(r#type())
-		.separated_by(discard!(Token::Comma(..)))
+		.separated_by(select!{ Token::Comma(..) => () })
 		.collect::<Vec<_>>()
 		.delimited_by(
-			discard!(Token::ParenLeft(..)),
-			discard!(Token::ParenRight(..))
+			select!{ Token::ParenLeft(..) => () },
+			select!{ Token::ParenRight(..) => () }
 		)
 		.labelled("parameters");
 	
-	let fn_type = discard!(Token::Keyword(Keyword::Function, ..))
+	// FN_TYPE ::= `function` VAR_TYPE PARAMS_LIST
+	let fn_type = select!{ Token::Keyword(Keyword::Function, ..) => () }
 		.ignore_then(r#type())
 		.then(params_list)
 		.map(|(r#type, params)| {
@@ -99,10 +54,12 @@ fn decl_func<'src>()
 		.then(fn_type)
 		.then(
 			choice((
-				discard!(Token::Semicolon(..))
+				// DECL_FN ::= ident `:` FN_TYPE `;`
+				select!{ Token::Semicolon(..) => () }
 					.ignored()
 					.map(|_| None),
-				discard!(Token::Operator(Op::Assign, ..))
+				// DECL_FN ::= ident `:` FN_TYPE `=` STMT
+				select!{ Token::Operator(Op::Assign, ..) => () }
 					.ignore_then(stmt())
 					.map(|s| Some(s)),
 			))
@@ -135,20 +92,24 @@ fn decl_func<'src>()
 		.labelled("function declaration")
 }
 
+/// DECL_VAR ::= ident `:` VAR_TYPE `=` EXPR `;`
+///            | ident `:` VAR_TYPE `;`
 fn decl_var<'src>()
 -> impl Parser<'src, &'src [Token<'src>], Decl<'src>, Err<Rich<'src, Token<'src>>>> {
 	let val = expr().labelled("value");
 
 	ident()
-		.then_ignore(discard!(Token::Colon(..)))
+		.then_ignore(select!{ Token::Colon(..) => () })
 		.then(r#type())
 		.then(
 			choice((
-				discard!(Token::Operator(Op::Assign, ..))
+				// DECL_VAR ::= ident `:` VAR_TYPE `=` EXPR `;`
+				select!{ Token::Operator(Op::Assign, ..) => () }
 					.then(val)
-					.then(discard!(Token::Semicolon(..)))
+					.then(select!{ Token::Semicolon(..) => () })
 					.map(|((_, e), _)| Some(e)),
-				discard!(Token::Semicolon(..))
+				// DECL_VAR ::= ident `:` VAR_TYPE `;`
+				select!{ Token::Semicolon(..) => () }
 					.map(|_| None),
 			))
 		)
