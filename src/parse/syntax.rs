@@ -1,323 +1,562 @@
+use chumsky::input::ValueInput;
+use expr::BinaryExprKind;
+use r#type::FunctionType;
 use super::*;
-use decl::Function;
-use extra::Err;
 
 /// PROGRAM ::= DECL*
-pub fn parser<'src>()
--> impl Parser<'src, &'src [Token<'src>], Vec<Decl>, Err<Rich<'src, Token<'src>>>> {
-	let decl = choice((
-
-	))
+pub fn parser<'src, I>()
+-> impl Parser<'src, I, Vec<Decl<'src>>, Err<Rich<'src, Token<'src>>>>
+    + Clone
+where
+    I: ValueInput<'src, Token = Token<'src>, Span = SimpleSpan>
+{
+    choice((
+        decl_fn(),
+        decl_var(),
+    ))
+    .labelled("declaration")
+    .repeated()
+    .collect::<Vec<_>>()
 }
 
-fn ident<'src>()
--> impl Parser<'src, &'src [Token<'src>], &'src str, Err<Rich<'src, Token<'src>>>>
-+ Clone {
-	select!{ Token::Ident(id, _span) => id }.labelled("identifier")
+/// DECL_FN ::= ident `:` FN_TYPE `=` STMT
+///         |   ident `:` FN_TYPE `;`
+/// FN_TYPE ::= `function` VAL_TYPE PARAMS
+/// PARAMS  ::= `(` ( PARAM ( `,` PARAM )* )? `)`
+/// PARAM   ::= ident `:` VAL_TYPE
+fn decl_fn<'src, I>()
+-> impl Parser<'src, I, Decl<'src>, Err<Rich<'src, Token<'src>>>>
+    + Clone
+where
+    I: ValueInput<'src, Token = Token<'src>, Span = SimpleSpan>
+{
+    let params =
+        select!{ Token::Ident(i) => i }
+        .then_ignore(just(Token::Colon))
+        .then(val_type())
+        .map_with(|(i, t), extra| r#type::Param {
+            ident: i,
+            r#type: t,
+            span: extra.span(),
+        })
+        .separated_by(just(Token::Comma))
+        .collect::<Vec<_>>()
+        .delimited_by(just(Token::ParenLeft), just(Token::ParenRight))
+        .labelled("parameters");
+
+    let fn_type =
+        just(Token::Keyword(Keyword::Function))
+        .ignore_then(val_type())
+        .then(params)
+        .map_with(|(t, params), extra|
+            Type::Function(FunctionType {
+                return_type: Box::new(t),
+                params,
+                span: extra.span(),
+            })
+        );
+
+    select!{ Token::Ident(i) => i }
+        .then_ignore(just(Token::Colon))
+        .then(fn_type)
+        .then(
+            choice((
+                just(Token::Operator(Op::Assign))
+                    .ignore_then(stmt())
+                    .map(|s| Some(s)),
+                just(Token::Semicolon).ignored().map(|_| None),
+            ))
+        )
+        .map_with(|((i, r#type), body), extra|
+            Decl::Function(decl::Function {
+                name: i,
+                r#type: Box::new(r#type),
+                body,
+                span: extra.span(),
+            })
+        )
 }
 
-/// DECL_FN     ::= ident `:` FN_TYPE `;`
-///             |   ident `:` FN_TYPE `=` STMT
-/// 
-/// FN_TYPE     ::= `function` VAR_TYPE PARAMS_LIST
-/// 
-/// PARAMS_LIST ::= `(` (ident `:` VAR_TYPE (`,` ident `:` VAR_TYPE )*)? `)`
-fn decl_fn<'src>()
--> impl Parser<'src, &'src [Token<'src>], Decl<'src>, Err<Rich<'src, Token<'src>>>> {
-	// PARAMS_LIST ::= `(` (ident `:` VAR_TYPE (`,` ident `:` VAR_TYPE )*)? `)`
-	let params_list = ident()
-		.then_ignore(select!{ Token::Colon(..) => () })
-		.then(var_type())
-		.separated_by(select!{ Token::Comma(..) => () })
-		.collect::<Vec<_>>()
-		.delimited_by(
-			select!{ Token::ParenLeft(..) => () },
-			select!{ Token::ParenRight(..) => () }
-		)
-		.labelled("parameters");
-	
-	// FN_TYPE ::= `function` VAR_TYPE PARAMS_LIST
-	let fn_type = select!{ Token::Keyword(Keyword::Function, ..) => () }
-		.ignore_then(var_type())
-		.then(params_list)
-		.map(|(r#type, params)| {
-			let span = r#type.get_span().clone();
-			Type::Function(
-				Box::new(r#type),
-				params,
-				span,
-			)
-		})
-		.labelled("function type");
-	
-	ident()
-		.then(fn_type)
-		.then(
-			choice((
-				// DECL_FN ::= ident `:` FN_TYPE `;`
-				select!{ Token::Semicolon(..) => () }
-					.ignored()
-					.map(|_| None),
-				// DECL_FN ::= ident `:` FN_TYPE `=` STMT
-				select!{ Token::Operator(Op::Assign, ..) => () }
-					.ignore_then(stmt())
-					.map(|s| Some(s)),
-			))
-		)
-		.map(|((ident, r#type), body)| {
-			let type_span = r#type.get_span().unwrap();
-
-			let end = match r#type {
-				Type::Function(_, ref params, _) => {
-					if let Some(param) = params.last() {
-						param.1.get_span().unwrap().end
-					} else {
-						type_span.end
-					}
-				}
-				_ => type_span.end
-			};
-
-			let span = Some(SimpleSpan::new(type_span.start, end));
-
-			Decl::Function(
-				Function {
-					name: ident,
-					r#type: Box::new(r#type),
-					rhs: body,
-					span,
-				}
-			)
-		})
-		.labelled("function declaration")
+/// DECL_VAR ::= ident `:` VAL_TYPE `=` EXPR `;`
+///          |   ident `:` VAL_TYPE `;`
+fn decl_var<'src, I>()
+-> impl Parser<'src, I, Decl<'src>, Err<Rich<'src, Token<'src>>>>
+    + Clone
+where
+    I: ValueInput<'src, Token = Token<'src>, Span = SimpleSpan>
+{
+    select!{ Token::Ident(i) => i }
+        .then_ignore(just(Token::Colon))
+        .then(val_type())
+        .then(
+            choice((
+                just(Token::Operator(Op::Assign))
+                    .ignore_then(expr())
+                    .then_ignore(just(Token::Semicolon))
+                    .map(|e| Some(e)),
+                just(Token::Semicolon).ignored().map(|_| None),
+            ))
+        )
+        .map_with(|((i, r#type), rhs), extra|
+            Decl::Var(decl::Var {
+                name: i,
+                r#type: Box::new(r#type),
+                rhs,
+                span: extra.span(),
+            })
+        )
 }
 
-/// DECL_VAR ::= ident `:` VAR_TYPE `=` EXPR `;`
-///          |   ident `:` VAR_TYPE `;`
-fn decl_var<'src>()
--> impl Parser<'src, &'src [Token<'src>], Decl<'src>, Err<Rich<'src, Token<'src>>>>
-+ Clone {
-	let val = expr().labelled("value");
+/// EXPR    ::= ASSIGN
+///         |   LOGIC
+///         |   ARRAY
+///
+/// ASSIGN  ::= [IDENT|INDEX] `=` EXPR
+///
+/// ARRAY   ::= `{` EXPR (`,` EXPR)* `}`
+///
+/// LOGIC   ::= CMP [`&&`|`||`] CMP
+///         |   CMP
+///
+/// CMP     ::= SUM [`==`|`!=`|`<`|`<=`|`>`|`>=`] SUM
+///         |   SUM
+///
+/// SUM     ::= PRODUCT [`+`|`-`] PRODUCT
+///         |   PRODUCT
+///
+/// PRODUCT ::= FACTOR [`*`|`/`|`^`|`%`] FACTOR
+///         |   FACTOR
+///
+/// FACTOR  ::= `-` FACTOR
+///         |   `!` FACTOR
+///         |   `(` EXPR `)`
+///         |   CALL
+///         |   INDEX
+///         |   IDENT
+///         |   LIT
+///
+/// CALL    ::= IDENT `(` (EXPR (`,` EXPR)*)? `)`
+///
+/// INDEX   ::= EXPR `[` EXPR `]`
+fn expr<'src, I>()
+-> impl Parser<'src, I, Expr<'src>, Err<Rich<'src, Token<'src>>>> 
+    + Clone
+where
+    I: ValueInput<'src, Token = Token<'src>, Span = SimpleSpan>
+{
+    recursive(|expr| {
+        // FACTOR ::= ident
+        let ident =
+            select!{ Token::Ident(i) => i }
+            .map_with(|i, extra| Expr::Ident(expr::IdentExpr{
+                ident: i,
+                span: extra.span(),
+            }))
+            .labelled("identifier");
 
-	ident()
-		.then_ignore(select!{ Token::Colon(..) => () })
-		.then(var_type())
-		.then(
-			choice((
-				// DECL_VAR ::= ident `:` VAR_TYPE `=` EXPR `;`
-				select!{ Token::Operator(Op::Assign, ..) => () }
-					.then(val)
-					.then(select!{ Token::Semicolon(..) => () })
-					.map(|((_, e), _)| Some(e)),
-				// DECL_VAR ::= ident `:` VAR_TYPE `;`
-				select!{ Token::Semicolon(..) => () }
-					.map(|_| None),
-			))
-		)
-		.map_with(|((ident, r#type), val), e|
-			Decl::Var(decl::Var {
-				name: ident,
-				r#type: Box::new(r#type),
-				rhs: val,
-				span: Some(e.span()),
-			})
-		)
-		.labelled("variable declaration")
+        // LIT ::= lit_bool
+        let lit_bool =
+            select! {
+                Token::Keyword(Keyword::True) => true,
+                Token::Keyword(Keyword::False) => false,
+            }
+            .map_with(|b, extra| Expr::BoolLit(b, extra.span()));
+
+        // LIT ::= lit_char
+        let lit_char =
+            select!{ Token::LitChar(c) => c }
+            .map_with(|c, extra| Expr::CharLit(c, extra.span()));
+
+        // LIT ::= lit_int
+        let lit_int =
+            select!{ Token::LitInt(i) => i }
+            .map_with(|i, extra| Expr::IntLit(i, extra.span()));
+
+        // LIT ::= lit_str
+        let lit_str =
+            select!{ Token::LitString(s) => s }
+            .map_with(|s, extra| Expr::StrLit(s, extra.span()));
+
+        // FACTOR ::= LIT
+        let lit = choice((
+            lit_bool,
+            lit_char,
+            lit_int,
+            lit_str,
+        ))
+            .labelled("literal");
+
+        // FACTOR ::= ident `(` ( EXPR ( `,` EXPR )* )? `)`
+        let call =
+            select!{ Token::Ident(i) => i }
+            .then(
+                expr.clone()
+                .separated_by(just(Token::Comma))
+                .collect::<Vec<_>>()
+                .delimited_by(
+                        just(Token::ParenLeft),
+                        just(Token::ParenRight),
+                )
+            )
+            .map_with(|(ident, args), extra| Expr::Call(expr::CallExpr {
+                ident,
+                args,
+                span: extra.span(),
+            }))
+            .labelled("call");
+        
+        // FACTOR ::= EXPR `[` EXPR `]`
+        let index =
+            expr.clone()
+            .then(
+                expr.clone()
+                .delimited_by(
+                    just(Token::BraceLeft),
+                    just(Token::BraceRight),
+                )
+            )
+            .map_with(|(array, index), extra| Expr::Index(expr::IndexExpr {
+                array: Box::new(array),
+                index: Box::new(index),
+                span: extra.span(),
+            }));
+
+        let factor = recursive(|factor|
+            choice((
+                just(Token::Operator(Op::Sub))
+                    .ignore_then(factor.clone())
+                    .map_with(|f, extra| Box::new(Expr::Neg(f, extra.span()))),
+                just(Token::Operator(Op::Not))
+                    .ignore_then(factor.clone())
+                    .map_with(|f, extra| Box::new(Expr::Not(f, extra.span()))),
+                expr.clone()
+                    .delimited_by(
+                        just(Token::ParenLeft),
+                        just(Token::ParenRight),
+                    )
+                    .map(|e| Box::new(e)),
+                index.clone().map(|e| Box::new(e)),
+                call.map(|e| Box::new(e)),
+                lit.map(|e| Box::new(e)),
+                ident.then_ignore(just(Token::Operator(Op::Inc)))
+                    .map_with(|ident, extra|
+                        Box::new(Expr::Inc(Box::new(ident), extra.span()))
+                    ),
+                ident.then_ignore(just(Token::Operator(Op::Dec)))
+                    .map_with(|ident, extra|
+                        Box::new(Expr::Dec(Box::new(ident), extra.span()))
+                    ),
+                ident.map(|e| Box::new(e)),
+            ))
+        );
+        
+        // PRODUCT ::= FACTOR [`*`|`/`|`^`|`%`] FACTOR
+        //         |   FACTOR
+        let product =
+            factor.clone().foldl_with(
+                choice((
+                    just(Token::Operator(Op::Mul)).to(BinaryExprKind::Mul),
+                    just(Token::Operator(Op::Div)).to(BinaryExprKind::Div),
+                    just(Token::Operator(Op::Exp)).to(BinaryExprKind::Exp),
+                    just(Token::Operator(Op::Mod)).to(BinaryExprKind::Mod),
+                ))
+                .then(factor)
+                .repeated(),
+                |left, (kind, right), extra| Box::new(
+                    Expr::Binary(expr::BinaryExpr {
+                        kind,
+                        left,
+                        right,
+                        span: extra.span(),
+                    })
+                )
+            );
+
+        // SUM ::= PRODUCT [`+`|`-`] PRODUCT
+        //     |   PRODUCT
+        let sum =
+            product.clone().foldl_with(
+                choice((
+                    just(Token::Operator(Op::Add)).to(BinaryExprKind::Add),
+                    just(Token::Operator(Op::Sub)).to(BinaryExprKind::Sub),
+                ))
+                .then(product)
+                .repeated(),
+                |left, (kind, right), extra| Box::new(
+                    Expr::Binary(expr::BinaryExpr {
+                        kind,
+                        left,
+                        right,
+                        span: extra.span(),
+                    })
+                )
+            );
+        
+        // CMP ::= SUM [`==`|`!=`|`<`|`<=`|`>`|`>=`] SUM
+        //     |   SUM
+        let cmp =
+            sum.clone().foldl_with(
+                choice((
+                    just(Token::Operator(Op::Eq)).to(BinaryExprKind::Eq),
+                    just(Token::Operator(Op::NotEq)).to(BinaryExprKind::NotEq),
+                    just(Token::Operator(Op::Less)).to(BinaryExprKind::Less),
+                    just(Token::Operator(Op::LessEq)).to(BinaryExprKind::LessEq),
+                    just(Token::Operator(Op::Greater)).to(BinaryExprKind::Greater),
+                    just(Token::Operator(Op::GreaterEq)).to(BinaryExprKind::GreaterEq),
+                ))
+                .then(sum)
+                .repeated(),
+                |left, (kind, right), extra| Box::new(
+                    Expr::Binary(expr::BinaryExpr {
+                        kind,
+                        left,
+                        right,
+                        span: extra.span(),
+                    })
+                )
+            );
+
+        // LOGIC ::= CMP [`&&`|`||`] CMP
+        //       |   CMP
+        let logic =
+            cmp.clone().foldl_with(
+                choice((
+                    just(Token::Operator(Op::And)).to(BinaryExprKind::And),
+                    just(Token::Operator(Op::Or)).to(BinaryExprKind::Or),
+                ))
+                .then(cmp)
+                .repeated(),
+                |left, (kind, right), extra| Box::new(
+                    Expr::Binary(expr::BinaryExpr {
+                        kind,
+                        left,
+                        right,
+                        span: extra.span(),
+                    })
+                )
+            );
+
+        // ASSIGN ::= [ident|index] `=` EXPR
+        let assign =
+            choice((
+                ident,
+                index,
+            ))
+            .then_ignore(just(Token::Operator(Op::Assign)))
+            .then(expr.clone())
+            .map_with(|(left, right), extra|
+                Expr::Binary(expr::BinaryExpr {
+                    kind: BinaryExprKind::Assign,
+                    left: Box::new(left),
+                    right: Box::new(right),
+                    span: extra.span(),
+                })
+            );
+
+        let array =
+            expr.clone()
+            .separated_by(just(Token::Comma))
+            .collect::<Vec<_>>()
+            .validate(|v, extra, emitter| {
+                if v.len() == 0 {
+                    emitter.emit(Rich::custom(
+                        extra.span(),
+                        "arrays cannot be empty"
+                    ))
+                }
+                v
+            })
+            .delimited_by(
+                just(Token::CurlyLeft),
+                just(Token::CurlyRight),
+            )
+            .map_with(|a, extra| Expr::Array(a, extra.span()));
+
+        choice((assign, logic.map(|e| *e), array))
+    })
+    .labelled("expression")
 }
 
-/// VAR_TYPE ::= ATOMIC
-///          |  `array` `[` EXPR? `]` ATOMIC
-/// 
-/// ATOMIC   ::= `boolean`
-///          |   `character`
+/// STMT ::= `{` STMT* `}`
+///      |   DECL
+///      |   EXPR `;`
+///      |   `print` EXPR ( `,` EXPR )* `;`
+///      |   `return` EXPR `;`
+///      |   `if` `(` EXPR `)` STMT
+///      |   `if` `(` EXPR `)` STMT `else` STMT
+///      |   `for` `(` EXPR `;` EXPR `;` EXPR `)` STMT
+///      |   `while` `(` EXPR `)` STMT
+fn stmt<'src, I>()
+-> impl Parser<'src, I, Stmt<'src>, Err<Rich<'src, Token<'src>>>>
+    + Clone
+where 
+    I: ValueInput<'src, Token = Token<'src>, Span = SimpleSpan>
+{
+    recursive(|stmt| { 
+        // STMT ::= `{` STMT* `}`
+        let block =
+            stmt.clone()
+            .repeated()
+            .collect::<Vec<_>>()
+            .delimited_by(just(Token::CurlyLeft), just(Token::CurlyRight))
+            .map_with(|body, extra| Stmt::Block(body, extra.span()))
+            .labelled("block");
+        
+        // STMT ::= DECL `;`
+        let decl =
+            decl_var()
+            .map_with(|decl, extra| Stmt::Decl(Box::new(decl), extra.span()))
+            .labelled("variable declaration");
+
+        // STMT ::= EXPR `;`
+        let expr_stmt =
+            expr()
+            .then_ignore(just(Token::Semicolon))
+            .map_with(|expr, extra| Stmt::Expr(expr, extra.span()))
+            .labelled("expression");
+
+        // STMT ::= `print` EXPR ( `,` EXPR )* `;`
+        let print =
+            just(Token::Keyword(Keyword::Print))
+            .ignore_then(
+                expr()
+                .separated_by(just(Token::Comma))
+                .collect::<Vec<_>>()
+            )
+            .then_ignore(just(Token::Semicolon))
+            .map_with(|exprs, extra| Stmt::Print(exprs, extra.span()))
+            .labelled("print");
+
+        // STMT ::= `return` EXPR `;`
+        let r#return =
+            just(Token::Keyword(Keyword::Return))
+            .ignore_then(expr())
+            .then_ignore(just(Token::Semicolon))
+            .map_with(|expr, extra| Stmt::Return(expr, extra.span()))
+            .labelled("return");
+
+        // STMT ::= `if` `(` EXPR `)` STMT
+        //      |   `if` `(` EXPR `)` STMT `else` STMT
+        let r#if =
+            just(Token::Keyword(Keyword::If))
+            .ignore_then(
+                expr()
+                .delimited_by(just(Token::ParenLeft), just(Token::ParenRight))
+            )
+            .then(stmt.clone())
+            .then(
+                just(Token::Keyword(Keyword::Else))
+                .ignore_then(stmt.clone())
+                .map(|s| Box::new(s))
+                .or_not()
+            )
+            .map_with(|((condition, body), else_body), extra|
+                Stmt::If(stmt::IfStmt {
+                    condition: Box::new(condition),
+                    body: Box::new(body),
+                    else_body,
+                    span: extra.span(),
+                })
+            )
+            .labelled("if-statement");
+
+        // STMT ::= `for` `(` EXPR `;` EXPR `;` EXPR `)` STMT
+        let r#for =
+            just(Token::Keyword(Keyword::For))
+            .ignore_then(
+                expr()
+                .then_ignore(just(Token::Semicolon))
+                .then(expr())
+                .then_ignore(just(Token::Semicolon))
+                .then(expr())
+                .delimited_by(just(Token::ParenLeft), just(Token::ParenRight))
+            )
+            .then(stmt.clone())
+            .map_with(|(((init_expr, condition), next_expr), body), extra|
+                Stmt::For(stmt::ForStmt {
+                    init_expr: Box::new(init_expr),
+                    condition: Box::new(condition),
+                    next_expr: Box::new(next_expr),
+                    body: Box::new(body),
+                    span: extra.span(),
+                })
+            )
+            .labelled("for-loop");
+
+        // STMT ::= `while` `(` EXPR `)` STMT
+        let r#while =
+            just(Token::Keyword(Keyword::While))
+            .ignore_then(
+                expr()
+                .delimited_by(just(Token::ParenLeft), just(Token::ParenRight))
+            )
+            .then(stmt.clone())
+            .map_with(|(condition, body), extra|
+                Stmt::While(stmt::WhileStmt {
+                    condition: Box::new(condition),
+                    body: Box::new(body),
+                    span: extra.span(),
+                })
+            )
+            .labelled("while-loop");
+    
+        choice((
+            r#return,
+            print,
+            r#if,
+            r#for,
+            r#while,
+            decl,
+            expr_stmt,
+            block,
+        ))
+    })
+}
+
+/// VAL_TYPE ::= `array` `[` EXPR? `]` VAL_TYPE
+///          |   `boolean`
+///          |   `char`
 ///          |   `integer`
 ///          |   `string`
 ///          |   `void`
-fn var_type<'src>()
--> impl Parser<'src, &'src [Token<'src>], Type<'src>, Err<Rich<'src, Token<'src>>>> {
+fn val_type<'src, I>()
+-> impl Parser<'src, I, Type<'src>, Err<Rich<'src, Token<'src>>>>
+    + Clone
+where
+    I: ValueInput<'src, Token = Token<'src>, Span = SimpleSpan>
+{
+    recursive(|val_type| {
+        let array =
+            just(Token::Keyword(Keyword::Array))
+            .ignore_then(
+                expr().or_not()
+                .delimited_by(
+                    just(Token::BraceLeft),
+                    just(Token::BraceRight),
+                )
+            )
+            .then(val_type.clone())
+            .map_with(|(expr, r#type), extra|
+                Type::Array(r#type::ArrayType {
+                    r#type: Box::new(r#type),
+                    size: r#type::ArraySize::Expr(expr),
+                    span: extra.span(),
+                }) 
+            );
 
-}
+        let atomic =
+            choice((
+                just(Token::Keyword(Keyword::Boolean)).to(Atomic::Boolean),
+                just(Token::Keyword(Keyword::Char)).to(Atomic::Char),
+                just(Token::Keyword(Keyword::Integer)).to(Atomic::Integer),
+                just(Token::Keyword(Keyword::String)).to(Atomic::String),
+                just(Token::Keyword(Keyword::Void)).to(Atomic::Void),
+            ))
+            .map_with(|t, extra| Type::Atomic(t, extra.span()));
 
-/// EXPR ::= EXPR [`+`|`-`|`*`|`/`|`^`|`%`|`=`] EXPR
-///      |   EXPR [`==`|`!=`|`<`|`<=`|`>`|`>=`|`&&`|`||`] EXPR
-///      |   [`!`|`-`] EXPR
-///      |   EXPR [`++`|`--`]
-///      |   EXPR `(` (EXPR (`,` EXPR)*)? `)`
-///      |   `{` EXPR (`,` EXPR)* `}`
-///      |   EXPR `[` EXPR `]`
-///      |   ident | `true` | `false` | char_lit | int_lit | str_lit
-fn expr<'src>()
--> impl Parser<'src, &'src [Token<'src>], Expr<'src>, Err<Rich<'src, Token<'src>>>>
-+ Clone {
-	
-}
-
-/// STMT ::= DECL `;`
-///      |   EXPR `;`
-///      |  `if` `(` EXPR `)` STMT
-///      |  `if` `(` EXPR `)` STMT `else` `(` EXPR `)` STMT
-///      |  `for` `(` EXPR `;` EXPR `;` EXPR `)` STMT
-///      |  `while` `(` EXPR `)` STMT
-///      |  `print` EXPR (`,` EXPR)* `;`
-///      |  `return` EXPR `;`
-///      |  `{` STMT* `}`
-fn stmt<'src>()
--> impl Parser<'src, &'src [Token<'src>], Stmt<'src>, Err<Rich<'src, Token<'src>>>> {
-	let r#if = select!{ Token::Keyword(Keyword::If, s) => s }
-		.then(expr())
-		.delimited_by(
-			select!{ Token::ParenLeft(..) => () },
-			select!{ Token::ParenRight(..) => () },
-		)
-		.then(stmt())
-		.then(
-			select!{ Token::Keyword(Keyword::Else, ..) => () }
-			.ignore_then(stmt())
-			.or_not()
-		)
-		.map(|(((if_span, if_cond), if_body), r#else)| {
-			let span = Some(SimpleSpan::new(
-				if_span.unwrap().start,
-				if_cond.get_span().unwrap().end,
-			));
-
-			match r#else {
-				Some(r#else) => {
-					Stmt::IfElse(stmt::IfElse{
-						condition: Box::new(if_cond),
-						body: Box::new(if_body),
-						else_body: Box::new(r#else),
-						span,
-					})
-				}
-				None => {
-					Stmt::If(
-						Box::new(if_cond),
-						Box::new(if_body),
-						span,
-					)
-				}
-			}
-		});
-	
-	let r#for = select!{ Token::Keyword(Keyword::For, s) => s }
-		.then(
-			expr()
-			.then_ignore(select!{ Token::Semicolon(..) => () })
-			.then(expr())
-			.then_ignore(select!{ Token::Semicolon(..) => () })
-			.then(expr())
-			.delimited_by(
-				select!{ Token::ParenLeft(..) => () },
-				select!{ Token::ParenRight(..) => () }
-			)
-		)
-		.then(stmt())
-		.map(|((for_span, ((init_expr, condition), next_expr)), body)| {
-			let span = Some(SimpleSpan::new(
-				for_span.unwrap().start,
-				next_expr.get_span().unwrap().end,
-			));
-
-			Stmt::For(stmt::For {
-				init_expr: Box::new(init_expr),
-				condition: Box::new(condition),
-				next_expr: Box::new(next_expr),
-				body: Box::new(body),
-				span,
-			})
-		});
-
-	let r#while = select!{ Token::Keyword(Keyword::While, s) => s }
-		.then(
-			expr()
-			.delimited_by(
-				select!{ Token::ParenLeft(..) => () },
-				select!{ Token::ParenRight(..) => () }
-			)
-		)
-		.then(stmt())
-		.map(|((while_span, condition), body)| {
-			let span = Some(SimpleSpan::new(
-				while_span.unwrap().start,
-				condition.get_span().unwrap().end,
-			));
-			
-			Stmt::While(
-				Box::new(condition),
-				Box::new(body),
-				span,
-			)
-		});
-
-	let print = select!{ Token::Keyword(Keyword::Print, s) => s }
-		.then(
-			expr()
-				.separated_by(select!{ Token::Comma(..) => () })
-				.at_least(1)
-				.collect::<Vec<_>>()
-		)
-		.then_ignore(select!{ Token::Semicolon(..) => () })
-		.map(|(print_span, exprs)| {
-			let span = Some(SimpleSpan::new(
-				print_span.unwrap().start,
-				exprs.last().unwrap().get_span().unwrap().end,
-			));
-
-			Stmt::Print(
-				exprs,
-				span,
-			)
-		});
-	
-	let r#return = select!{ Token::Keyword(Keyword::Return, s) => s }
-		.then(expr())
-		.then_ignore(select!{ Token::Semicolon(..) => () })
-		.map(|(return_span, expr)| {
-			let span = Some(SimpleSpan::new(
-				return_span.unwrap().start,
-				expr.get_span().unwrap().end,
-			));
-			
-			Stmt::Return(
-				Box::new(expr),
-				span,
-			)
-		});
-	
-	let block = select!{ Token::CurlyLeft(s) => s }
-		.then(
-			stmt()
-			.repeated()
-			.collect::<Vec<_>>()
-		)
-		.then(select!{ Token::CurlyRight(s) => s })
-		.map(|((s1, stmts), s2)| Stmt::Block(
-			stmts,
-			Some(SimpleSpan::new(
-				s1.unwrap().start,
-				s2.unwrap().end,
-			))
-		))
-		.labelled("block");
-	
-	let stmt = recursive(|stmt| 
-		choice((
-			decl_var()
-				.then_ignore(select!{ Token::Semicolon(..) => () })
-				.map(|d| {
-					let span = d.get_span();
-					Stmt::Decl(Box::new(d), span)
-				}),
-			expr()
-				.then_ignore(select!{ Token::Semicolon(..) => () })
-				.map(|e| {
-					let span = e.get_span();
-					Stmt::Expr(Box::new(e), span)
-				}),
-			r#for,
-		))
-	);
-
-	stmt
+        choice((
+            array,
+            atomic,
+        ))
+    })
 }

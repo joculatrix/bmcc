@@ -1,4 +1,4 @@
-use chumsky::prelude::*;
+use chumsky::{extra::Err, prelude::*};
 use crate::ast::*;
 
 mod lex;
