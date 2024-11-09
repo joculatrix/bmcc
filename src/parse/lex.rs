@@ -64,13 +64,11 @@ pub fn lex<'src>()
     let comment = choice((
         just("//")
             .then(any().and_is(just('\n').not()).repeated())
-            .padded()
-            .ignored(),
+            .padded(),
         any()
             .and_is(just("*/").not())
             .repeated()
             .delimited_by(just("/*"), just("*/"))
-            .ignored(),
     ));
 
     let int_lit = text::int(10).validate(|s: &str, e, emitter| {
@@ -140,11 +138,9 @@ pub fn lex<'src>()
     ))
     .map_with(|t, e| (t, e.span()));
 
-    choice((string_lit, char_lit, int_lit, op, punctuation, ident))
+    choice((comment, string_lit, char_lit, int_lit, ident, op, punctuation))
         .padded()
-        .padded_by(comment)
+        .recover_with(skip_then_retry_until(any().ignored(), end()))
         .repeated()
         .collect()
-        .padded()
-        .then_ignore(end())
 }

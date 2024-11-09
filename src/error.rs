@@ -4,13 +4,11 @@ use chumsky::error::{Rich, RichReason};
 use codesnake::{Block, CodeWidth, Label, LineIndex};
 use yansi::Paint;
 
-use crate::parse::Token;
-
-pub fn parser_errs<'src>(
-    errs: Vec<Rich<Token>>,
+pub fn parser_errs<'src, T>(
+    errs: Vec<Rich<T>>,
     path: &PathBuf,
-    src: &'src str
-) {
+    src: &'src str,
+) where T: std::fmt::Display + Clone {
     let idx = LineIndex::new(&src);
     for err in errs {
         build_parser_err(err, path, &idx)
@@ -27,11 +25,12 @@ pub fn parser_errs<'src>(
 /// * `path` - the path to the source file (just for printing)
 /// * `idx` - codesnake `LineIndex` from source, for printing the offending
 ///   code; should be constructed in calling function
-fn build_parser_err<'src>(
-    err: Rich<Token>,
+fn build_parser_err<'src, T>(
+    err: Rich<T>,
     path: &PathBuf,
-    idx: &'src LineIndex<'src>
-) -> CompilerErr<'src> {
+    idx: &'src LineIndex<'src>,
+) -> CompilerErr<'src>
+where T: std::fmt::Display + Clone {
     let reason = err.reason();
 
     match reason {
