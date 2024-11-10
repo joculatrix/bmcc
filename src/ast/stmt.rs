@@ -1,6 +1,6 @@
 use super::*;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 /// AST type for B-Minor statements.
 /// 
 /// Thain's book technically states the while statement shouldn't exist.
@@ -17,7 +17,7 @@ pub enum Stmt<'src> {
     While(WhileStmt<'src>),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct IfStmt<'src> {
 	pub condition: Box<Expr<'src>>,
 	pub body: Box<Stmt<'src>>,
@@ -25,7 +25,7 @@ pub struct IfStmt<'src> {
 	pub span: SimpleSpan,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 /// A for-loop of the form:
 /// 
 /// for (`init_expr`; `condition`; `next_expr`) `body`
@@ -37,7 +37,7 @@ pub struct ForStmt<'src> {
 	pub span: SimpleSpan,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct WhileStmt<'src> {
     pub condition: Box<Expr<'src>>,
     pub body: Box<Stmt<'src>>,

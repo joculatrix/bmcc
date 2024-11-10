@@ -35,7 +35,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             std::process::exit(1);
         });
 
-    let _ast = parser()
+    let ast = parser()
         .parse(
             <&[(parse::Token, SimpleSpan)] as Input>
                 ::spanned(tokens.as_slice(), (src.len()..src.len()).into())
@@ -45,6 +45,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             error::parser_errs(errs, &args.src, &src);
             std::process::exit(1);
         });
+
+    println!("{:#?}", ast);
 
     Ok(())
 }

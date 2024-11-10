@@ -124,20 +124,20 @@ where
 /// SUM     ::= PRODUCT [`+`|`-`] PRODUCT
 ///         |   PRODUCT
 ///
-/// PRODUCT ::= FACTOR [`*`|`/`|`^`|`%`] FACTOR
-///         |   FACTOR
+/// PRODUCT ::= INDEX [`*`|`/`|`^`|`%`] INDEX
+///         |   INDEX
 ///
 /// FACTOR  ::= `-` FACTOR
 ///         |   `!` FACTOR
 ///         |   `(` EXPR `)`
 ///         |   CALL
-///         |   INDEX
 ///         |   IDENT
 ///         |   LIT
 ///
 /// CALL    ::= IDENT `(` (EXPR (`,` EXPR)*)? `)`
 ///
-/// INDEX   ::= EXPR `[` EXPR `]`
+/// INDEX   ::= FACTOR `[` EXPR `]`
+///         |   FACTOR
 fn expr<'src, I>()
 -> impl Parser<'src, I, Expr<'src>, Err<Rich<'src, Token<'src>>>> 
     + Clone
@@ -204,22 +204,6 @@ where
                 span: extra.span(),
             }))
             .labelled("call");
-        
-        // FACTOR ::= EXPR `[` EXPR `]`
-        let index =
-            expr.clone()
-            .then(
-                expr.clone()
-                .delimited_by(
-                    just(Token::BraceLeft),
-                    just(Token::BraceRight),
-                )
-            )
-            .map_with(|(array, index), extra| Expr::Index(expr::IndexExpr {
-                array: Box::new(array),
-                index: Box::new(index),
-                span: extra.span(),
-            }));
 
         let factor = recursive(|factor|
             choice((
@@ -235,7 +219,6 @@ where
                         just(Token::ParenRight),
                     )
                     .map(|e| Box::new(e)),
-                index.clone().map(|e| Box::new(e)),
                 call.map(|e| Box::new(e)),
                 lit.map(|e| Box::new(e)),
                 ident.then_ignore(just(Token::Operator(Op::Inc)))
@@ -250,17 +233,38 @@ where
             ))
         );
         
-        // PRODUCT ::= FACTOR [`*`|`/`|`^`|`%`] FACTOR
-        //         |   FACTOR
+        // INDEX ::= FACTOR `[` EXPR `]`
+        //       |   FACTOR
+        let index = choice((
+            factor.clone()
+                .then(
+                    expr.clone()
+                    .delimited_by(
+                        just(Token::BraceLeft),
+                        just(Token::BraceRight),
+                    )
+                )
+                .map_with(|(array, index), extra| Box::new(
+                    Expr::Index(expr::IndexExpr {
+                        array,
+                        index: Box::new(index),
+                        span: extra.span(),
+                    })
+                )),
+            factor.clone(),
+        ));
+
+        // PRODUCT ::= INDEX [`*`|`/`|`^`|`%`] INDEX
+        //         |   INDEX
         let product =
-            factor.clone().foldl_with(
+            index.clone().foldl_with(
                 choice((
                     just(Token::Operator(Op::Mul)).to(BinaryExprKind::Mul),
                     just(Token::Operator(Op::Div)).to(BinaryExprKind::Div),
                     just(Token::Operator(Op::Exp)).to(BinaryExprKind::Exp),
                     just(Token::Operator(Op::Mod)).to(BinaryExprKind::Mod),
                 ))
-                .then(factor)
+                .then(index.clone())
                 .repeated(),
                 |left, (kind, right), extra| Box::new(
                     Expr::Binary(expr::BinaryExpr {
@@ -339,7 +343,7 @@ where
         // ASSIGN ::= [ident|index] `=` EXPR
         let assign =
             choice((
-                ident,
+                ident.map(|i| Box::new(i)),
                 index,
             ))
             .then_ignore(just(Token::Operator(Op::Assign)))
@@ -347,7 +351,7 @@ where
             .map_with(|(left, right), extra|
                 Expr::Binary(expr::BinaryExpr {
                     kind: BinaryExprKind::Assign,
-                    left: Box::new(left),
+                    left: left,
                     right: Box::new(right),
                     span: extra.span(),
                 })

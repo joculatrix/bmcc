@@ -1,6 +1,6 @@
 use super::*;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 /// Warning: The `Option<SimpleSpan>` must be the last field in ordered tuples
 /// or else the `Spanned` trait will break.
 pub enum Type<'src> {
@@ -9,34 +9,34 @@ pub enum Type<'src> {
     Function(FunctionType<'src>),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum ArraySize<'src> {
     Expr(Option<Expr<'src>>),
     Known(usize),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ArrayType<'src> {
     pub r#type: Box<Type<'src>>,
     pub size: ArraySize<'src>,
     pub span: SimpleSpan,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct FunctionType<'src> {
     pub return_type: Box<Type<'src>>,
     pub params: Vec<Param<'src>>,
     pub span: SimpleSpan,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Param<'src> {
     pub ident: &'src str,
     pub r#type: Type<'src>,
     pub span: SimpleSpan,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Atomic {
 	Boolean,
 	Char,

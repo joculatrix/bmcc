@@ -1,6 +1,6 @@
 use super::*;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 /// AST type for B-Minor expressions.
 /// 
 /// Note: Arithmetic operations in B-Minor can only be performed on integers.
@@ -40,7 +40,7 @@ pub enum Expr<'src> {
 	Array(Vec<Expr<'src>>, SimpleSpan),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum BinaryExprKind {
     Assign,
     Add,
@@ -59,7 +59,7 @@ pub enum BinaryExprKind {
     GreaterEq,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct BinaryExpr<'src> {
     pub kind: BinaryExprKind,
     pub left: Box<Expr<'src>>,
@@ -67,20 +67,20 @@ pub struct BinaryExpr<'src> {
     pub span: SimpleSpan,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CallExpr<'src> {
     pub ident: &'src str,
     pub args: Vec<Expr<'src>>,
     pub span: SimpleSpan,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct IdentExpr<'src> {
     pub ident: &'src str,
     pub span: SimpleSpan,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct IndexExpr<'src> {
     pub array: Box<Expr<'src>>,
     pub index: Box<Expr<'src>>,
