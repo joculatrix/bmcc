@@ -38,6 +38,7 @@ where
             ident: i,
             r#type: t,
             span: extra.span(),
+            symbol: None,
         })
         .separated_by(just(Token::Comma))
         .collect::<Vec<_>>()
@@ -73,6 +74,7 @@ where
                 r#type: Box::new(r#type),
                 body,
                 span: extra.span(),
+                symbol: None,
             })
         )
 }
@@ -103,6 +105,7 @@ where
                 r#type: Box::new(r#type),
                 rhs,
                 span: extra.span(),
+                symbol: None,
             })
         )
 }
@@ -151,6 +154,7 @@ where
             .map_with(|i, extra| Expr::Ident(expr::IdentExpr{
                 ident: i,
                 span: extra.span(),
+                symbol: None,
             }))
             .labelled("identifier");
 
@@ -202,6 +206,7 @@ where
                 ident,
                 args,
                 span: extra.span(),
+                symbol: None,
             }))
             .labelled("call");
 
@@ -351,7 +356,7 @@ where
             .map_with(|(left, right), extra|
                 Expr::Binary(expr::BinaryExpr {
                     kind: BinaryExprKind::Assign,
-                    left: left,
+                    left,
                     right: Box::new(right),
                     span: extra.span(),
                 })

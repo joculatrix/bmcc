@@ -72,12 +72,14 @@ pub struct CallExpr<'src> {
     pub ident: &'src str,
     pub args: Vec<Expr<'src>>,
     pub span: SimpleSpan,
+    pub symbol: Option<SymbolRef<'src>>,
 }
 
 #[derive(Clone, Debug)]
 pub struct IdentExpr<'src> {
     pub ident: &'src str,
     pub span: SimpleSpan,
+    pub symbol: Option<SymbolRef<'src>>,
 }
 
 #[derive(Clone, Debug)]

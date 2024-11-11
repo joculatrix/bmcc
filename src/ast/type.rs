@@ -1,8 +1,6 @@
 use super::*;
 
 #[derive(Clone, Debug)]
-/// Warning: The `Option<SimpleSpan>` must be the last field in ordered tuples
-/// or else the `Spanned` trait will break.
 pub enum Type<'src> {
     Atomic(Atomic, SimpleSpan),
     Array(ArrayType<'src>),
@@ -34,6 +32,7 @@ pub struct Param<'src> {
     pub ident: &'src str,
     pub r#type: Type<'src>,
     pub span: SimpleSpan,
+    pub symbol: Option<SymbolRef<'src>>,
 }
 
 #[derive(Clone, Debug, PartialEq)]

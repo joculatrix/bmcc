@@ -14,6 +14,7 @@ pub struct Var<'src> {
 	pub r#type: Box<Type<'src>>,
 	pub rhs: Option<Expr<'src>>,
 	pub span: SimpleSpan,
+    pub symbol: Option<SymbolRef<'src>>,
 }
 
 #[derive(Clone, Debug)]
@@ -22,4 +23,5 @@ pub struct Function<'src> {
 	pub r#type: Box<Type<'src>>,
 	pub body: Option<Stmt<'src>>,
 	pub span: SimpleSpan,
+    pub symbol: Option<SymbolRef<'src>>,
 }
