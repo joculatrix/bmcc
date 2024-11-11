@@ -18,6 +18,10 @@ impl<'a> SymbolTable<'a> {
         SymbolTable { stack: vec![] }
     }
 
+    pub fn scope_is_global(&self) -> bool {
+        self.stack.len() == 1
+    }
+
     /// Call when entering a scope during name resolution. Pushes a fresh
     /// `HashMap` for this scope's [`Symbol`]s on to the stack.
     pub fn scope_enter(&mut self) {
