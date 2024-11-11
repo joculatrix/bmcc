@@ -4,11 +4,19 @@ use std::{
     error::Error,
     rc::Rc,
 };
-
+use chumsky::span::SimpleSpan;
 use crate::ast::*;
 
+mod name_res;
+pub use name_res::NameResVisitor;
+
+/// Type alias for the [`Symbol`] containers used by the [`SymbolTable`] and
+/// for the various AST types to reference their associated symbols.
 pub type SymbolRef<'a> = Rc<RefCell<Symbol<'a>>>;
 
+/// A type for holding and interfacing with a stack of tables mapping
+/// identifiers to [`Symbol`]s in each scope of the program. Used for name
+/// resolution -- see [`NameResVisitor`].
 pub struct SymbolTable<'a> {
     stack: Vec<HashMap<&'a str, SymbolRef<'a>>>,
 }
@@ -18,6 +26,7 @@ impl<'a> SymbolTable<'a> {
         SymbolTable { stack: vec![] }
     }
 
+    /// Checks whether the stack currently only contains the global scope.
     pub fn scope_is_global(&self) -> bool {
         self.stack.len() == 1
     }
@@ -34,12 +43,23 @@ impl<'a> SymbolTable<'a> {
         self.stack.pop();
     }
 
-    /// Add a symbol to the current scope. Returns an error if there's no
-    /// current scope. Check for already existing symbols before calling this.
-    pub fn add_symbol(&mut self, symbol: Symbol<'a>) -> Result<(), Box<dyn Error>> {
+    /// Add a symbol to the current scope. Returns the resulting [`SymbolRef`]
+    /// in a `Result`.
+    ///
+    /// Ensure symbol doesn't already exist before calling.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if there is no current scope. Implementation should
+    /// be written to make this impossible, but the error is sitll returned
+    /// to force implementation to consider it.
+    pub fn add_symbol(&mut self, symbol: Symbol<'a>)
+    -> Result<SymbolRef<'a>, Box<dyn Error>> {
         if let Some(table) = self.stack.last_mut() {
-            table.insert(symbol.ident, Rc::new(RefCell::new(symbol)));
-            Ok(())
+            let ident = symbol.ident.clone();
+            let symbol = Rc::new(RefCell::new(symbol));
+            table.insert(ident, Rc::clone(&symbol));
+            Ok(symbol)
         } else {
             Err("no table to add symbol to".into())
         }
@@ -84,13 +104,26 @@ impl<'a> SymbolTable<'a> {
 #[derive(Debug)]
 pub enum SymbolKind {
     Global,
-    Local(usize),
-    Param,
+    Local,
+    Param {
+        /// This parameter's ordinal position in the function's parameters.
+        num: usize
+    },
+    Func { defined: bool },
 }
 
 #[derive(Debug)]
+/// Type representing the variables or functions referred to by identifiers used
+/// in the program. This is useful for typechecking, as well as ensuring
+/// identifiers don't reference nonexistent variables or functions, and that
+/// the same variable name isn't declared twice in the same scope.
 pub struct Symbol<'a> {
     ident: &'a str,
     kind: SymbolKind,
     r#type: Type<'a>,
+    /// The location of this symbol's first declaration in the program, for
+    /// error reporting - e.g., to be able to say "variable already declared in
+    /// this scope, declared here" or "must be assigned to type integer,
+    /// declared here".
+    decl_span: SimpleSpan,
 }
