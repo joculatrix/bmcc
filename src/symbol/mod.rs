@@ -56,7 +56,7 @@ impl<'a> SymbolTable<'a> {
     pub fn add_symbol(&mut self, symbol: Symbol<'a>)
     -> Result<SymbolRef<'a>, Box<dyn Error>> {
         if let Some(table) = self.stack.last_mut() {
-            let ident = symbol.ident.clone();
+            let ident = symbol.ident;
             let symbol = Rc::new(RefCell::new(symbol));
             table.insert(ident, Rc::clone(&symbol));
             Ok(symbol)

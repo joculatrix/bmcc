@@ -39,7 +39,16 @@ impl<'a> NameResVisitor<'a> {
                             }
                         );
                     } else {
-                        *defined = true;
+                        if *f.r#type != symbol.borrow().r#type {
+                            self.errs.push(
+                                NameResErr::PrototypeNotMatch {
+                                    proto_symbol: Rc::clone(&symbol),
+                                    span: f.span,
+                                }
+                            );
+                        } else {
+                            *defined = true;
+                        }
                     }
                 }
                 _ => {
@@ -230,6 +239,10 @@ pub enum NameResErr<'a> {
     },
     NotExists {
         ident: &'a str,
+        span: SimpleSpan,
+    },
+    PrototypeNotMatch {
+        proto_symbol: SymbolRef<'a>,
         span: SimpleSpan,
     }
 }

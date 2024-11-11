@@ -7,6 +7,29 @@ pub enum Type<'src> {
     Function(FunctionType<'src>),
 }
 
+impl<'src> PartialEq for Type<'src> {
+    /// Equivalence for typechecking. Note that this implementation does not
+    /// enforce that arrays must be of the same size for their type to be
+    /// equivalent.
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Atomic(type1, ..), Self::Atomic(type2, ..))
+                => type1 == type2,
+            (Self::Array(type1), Self::Array(type2))
+                => type1.r#type == type2.r#type,
+            (Self::Function(type1), Self::Function(type2))
+                => type1.return_type == type2.return_type
+                    && type1.params.len() == type2.params.len()
+                    && type1.params.iter()
+                        .zip(type2.params.iter())
+                        .fold(true, |acc, (p1, p2)|
+                            acc && p1.r#type == p2.r#type
+                        ),
+            _ => false,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum ArraySize<'src> {
     Expr(Option<Expr<'src>>),
