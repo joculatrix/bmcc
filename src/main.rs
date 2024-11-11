@@ -1,4 +1,5 @@
-#[warn(rust_2024_compatibility)]
+#![allow(unused)]
+#![warn(rust_2024_compatibility)]
 
 use std::error::Error;
 use std::path::PathBuf;
@@ -9,6 +10,7 @@ use parse::{lex, parser};
 mod ast;
 mod error;
 mod parse;
+mod symbol;
 
 #[derive(clap::Parser, Debug)]
 #[command(version, about, long_about = None)]
