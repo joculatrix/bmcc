@@ -21,9 +21,11 @@ where
 
 /// DECL_FN ::= ident `:` FN_TYPE `=` STMT
 ///         |   ident `:` FN_TYPE `;`
+///
 /// FN_TYPE ::= `function` VAL_TYPE PARAMS
+///
 /// PARAMS  ::= `(` ( PARAM ( `,` PARAM )* )? `)`
-/// PARAM   ::= ident `:` VAL_TYPE
+///         |   ident `:` VAL_TYPE
 fn decl_fn<'src, I>()
 -> impl Parser<'src, I, Decl<'src>, Err<Rich<'src, Token<'src>>>>
     + Clone
