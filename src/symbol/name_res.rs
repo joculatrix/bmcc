@@ -33,6 +33,24 @@ impl<'a> NameResVisitor<'a> {
         for decl in ast {
             self.visit_decl(decl);
         }
+
+        if let Some(f) = self.symbol_table.get_symbol("main") {
+            match f.borrow().r#type() {
+                Type::Function(r#type::FunctionType { return_type, .. }) => {
+                    if !return_type.is_int() {
+                        self.errs.push(NameResErr::MainNonInt {
+                            span: f.borrow().decl_span,
+                        });
+                    }
+                }
+                _ => {
+                    self.errs.push(NameResErr::NoMain);
+                }
+            }
+        } else {
+            self.errs.push(NameResErr::NoMain);
+        }
+
         self.symbol_table.scope_exit();
         self.errs
     }
@@ -258,16 +276,25 @@ impl<'a> NameResVisitor<'a> {
 }
 
 pub enum NameResErr<'a> {
+    /// A symbol by that name in the local scope has already been declared
     AlreadyExists {
         symbol: SymbolRef<'a>,
         span: SimpleSpan,
     },
+    /// A symbol was referenced, but it does not exist
     NotExists {
         ident: &'a str,
         span: SimpleSpan,
     },
+    /// The definition of a function does not match its prototype
     PrototypeNotMatch {
         proto_symbol: SymbolRef<'a>,
         span: SimpleSpan,
-    }
+    },
+    /// Function `main` exists, but it does not return an integer
+    MainNonInt {
+        span: SimpleSpan,
+    },
+    /// Function `main` does not exist
+    NoMain,
 }

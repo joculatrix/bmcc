@@ -455,57 +455,72 @@ impl<'a> TypecheckVisitor<'a> {
 }
 
 pub enum TypecheckErr<'a> {
+    /// Attempt to assign a variable to a value of the wrong type
     AssignMismatch {
         left: Type<'a>,
         right: Type<'a>,
     },
+    /// Attempt to compare non-matching types
     CmpDiffTypes {
         left: Type<'a>,
         right: Type<'a>,
     },
+    /// Attempt to call operator that only takes bools on non-bool values
     ExpectedBool {
         verb: &'static str,
         found: Type<'a>,
     },
+    /// Attempt to call operator that only takes ints on non-int values
     ExpectedInt {
         verb: &'static str,
         found: Type<'a>,
     },
+    /// Attempt to index a non-array value
     IndexNonArray {
         found: Type<'a>,
     },
+    /// Array literal has values of multiple types
     MixedTypeArray {
         first_expected: Type<'a>,
         found: Type<'a>,
     },
+    /// Attempt to index an array with a non-int value
     NonIntIndex {
         found: Type<'a>,
     },
+    /// A locally or globally defined array (not a parameter) is declared with
+    /// no discernible size
     NonSizedArray {
         span: SimpleSpan,
     },
+    /// Attempt to declare an array of functions
     ArrayOfFuncs {
         found: Type<'a>,
     },
+    /// Attempt to print a non-atomic type
     InvalidPrint {
         found: Type<'a>,
     },
+    /// Function call has the wrong number of arguments
     WrongNumArgs {
         expected: usize,
         found: usize,
         span: SimpleSpan,
     },
+    /// Attempt to assign an array of known size to an array of a different size
     WrongSizeArray {
         expected: usize,
         found: usize,
         span: SimpleSpan,
     },
+    /// An argument to a function call has the wrong type
     WrongTypeArg {
         expected: Type<'a>,
         found: Type<'a>,
     },
+    /// Return expression's type doesn't match return type of function
     WrongTypeReturn {
         expected: Type<'a>,
         found: Type<'a>,
-    }
+    },
 }
