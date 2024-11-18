@@ -7,6 +7,7 @@ use chumsky::{input::Input, span::SimpleSpan, Parser};
 
 use parse::{lex, parser};
 
+mod analysis;
 mod ast;
 mod error;
 mod parse;

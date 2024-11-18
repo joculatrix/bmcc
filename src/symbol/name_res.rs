@@ -2,18 +2,39 @@ use super::*;
 
 /// Type for traversing the AST and resolving variable/function names to
 /// [`Symbol`]s.
+///
+/// # Example
+///
+/// ```
+/// let mut ast: Vec<Decl<'_>> = vec![];
+/// 
+/// let mut name_res = NameResVisitor::new();
+/// if (errs @ name_res.resolve(&mut ast)).len() != 0 {
+///     // handle errors...
+/// }
+/// ```
 pub struct NameResVisitor<'a> {
     errs: Vec<NameResErr<'a>>,
     symbol_table: SymbolTable<'a>,
 }
 
 impl<'a> NameResVisitor<'a> {
-    pub fn resolve(&mut self, ast: &mut Vec<Decl<'a>>) {
+    pub fn new() -> NameResVisitor<'a> {
+        NameResVisitor {
+            errs: vec![],
+            symbol_table: SymbolTable::new(),
+        }
+    }
+
+    /// Runs the name resolution traversal of the AST, returning any errors
+    /// generated, and consumes the `NameResVisitor` in the process.
+    pub fn resolve(mut self, ast: &mut Vec<Decl<'a>>) -> Vec<NameResErr<'a>> {
         self.symbol_table.scope_enter(); // enter global scope
         for decl in ast {
             self.visit_decl(decl);
         }
         self.symbol_table.scope_exit();
+        self.errs
     }
 
     fn visit_decl(&mut self, decl: &mut Decl<'a>) {
@@ -194,7 +215,11 @@ impl<'a> NameResVisitor<'a> {
                     self.visit_expr(expr);
                 }
             }
-            Stmt::Return(expr, _) => { self.visit_expr(expr); }
+            Stmt::Return(expr, _) => {
+                if let Some(expr) = expr {
+                    self.visit_expr(expr);
+                }
+            }
             Stmt::If(stmt::IfStmt { condition, body, else_body, .. }) => {
                 self.visit_expr(condition);
 

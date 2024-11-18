@@ -40,7 +40,43 @@ pub enum Expr<'src> {
 	Array(Vec<Expr<'src>>, SimpleSpan),
 }
 
-#[derive(Clone, Debug)]
+impl<'a> Expr<'a> {
+    pub fn to_verb(&self) -> Option<&'static str> {
+        match self {
+            Expr::Ident(_) => None,
+            Expr::BoolLit(_, _) => None,
+            Expr::CharLit(_, _) => None,
+            Expr::IntLit(_, _) => None,
+            Expr::StrLit(_, _) => None,
+            Expr::Index(_) => Some("index"),
+            Expr::Binary(BinaryExpr { kind, .. }) => match kind {
+                BinaryExprKind::Assign => Some("assign"),
+                BinaryExprKind::Add => Some("add"),
+                BinaryExprKind::Sub => Some("subtract"),
+                BinaryExprKind::Mul => Some("multiply"),
+                BinaryExprKind::Div => Some("divide"),
+                BinaryExprKind::Exp => Some("exponentiate"),
+                BinaryExprKind::Mod => Some("modulo"),
+                BinaryExprKind::Eq => Some("compare"),
+                BinaryExprKind::NotEq => Some("compare"),
+                BinaryExprKind::And => Some("AND"),
+                BinaryExprKind::Or => Some("OR"),
+                BinaryExprKind::Less => Some("compare"),
+                BinaryExprKind::LessEq => Some("compare"),
+                BinaryExprKind::Greater => Some("compare"),
+                BinaryExprKind::GreaterEq => Some("compare"),
+            }
+            Expr::Inc(_, _) => Some("increment"),
+            Expr::Dec(_, _) => Some("decrement"),
+            Expr::Neg(_, _) => Some("negate"),
+            Expr::Not(_, _) => Some("logical NOT"),
+            Expr::Call(_) => Some("call"),
+            Expr::Array(_, _) => None,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
 pub enum BinaryExprKind {
     Assign,
     Add,

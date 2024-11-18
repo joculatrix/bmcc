@@ -7,6 +7,16 @@ pub enum Type<'src> {
     Function(FunctionType<'src>),
 }
 
+impl<'src> Type<'src> {
+    pub fn is_bool(&self) -> bool {
+        matches!(self, Type::Atomic(Atomic::Boolean, ..))
+    }
+
+    pub fn is_int(&self) -> bool {
+        matches!(self, Type::Atomic(Atomic::Integer, ..))
+    }
+}
+
 impl<'src> PartialEq for Type<'src> {
     /// Equivalence for typechecking. Note that this implementation does not
     /// enforce that arrays must be of the same size for their type to be
@@ -31,15 +41,15 @@ impl<'src> PartialEq for Type<'src> {
 }
 
 #[derive(Clone, Debug)]
-pub enum ArraySize<'src> {
-    Expr(Option<Expr<'src>>),
+pub enum ArraySize {
     Known(usize),
+    Unknown,
 }
 
 #[derive(Clone, Debug)]
 pub struct ArrayType<'src> {
     pub r#type: Box<Type<'src>>,
-    pub size: ArraySize<'src>,
+    pub size: ArraySize,
     pub span: SimpleSpan,
 }
 

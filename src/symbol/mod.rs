@@ -101,7 +101,7 @@ impl<'a> SymbolTable<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum SymbolKind {
     Global,
     Local,
@@ -126,4 +126,21 @@ pub struct Symbol<'a> {
     /// this scope, declared here" or "must be assigned to type integer,
     /// declared here".
     decl_span: SimpleSpan,
+}
+
+impl<'a> Symbol<'a> {
+    pub fn kind(&self) -> SymbolKind {
+        self.kind
+    }
+
+    pub fn r#type(&self) -> &Type<'a> {
+        &self.r#type
+    }
+
+    pub fn set_size(&mut self, size: r#type::ArraySize) {
+        match &mut self.r#type {
+            Type::Array(a_type) => { a_type.size = size; }
+            _ => (),
+        }
+    }
 }

@@ -392,7 +392,7 @@ where
 ///      |   DECL
 ///      |   EXPR `;`
 ///      |   `print` EXPR ( `,` EXPR )* `;`
-///      |   `return` EXPR `;`
+///      |   `return` EXPR? `;`
 ///      |   `if` `(` EXPR `)` STMT
 ///      |   `if` `(` EXPR `)` STMT `else` STMT
 ///      |   `for` `(` EXPR `;` EXPR `;` EXPR `)` STMT
@@ -438,10 +438,10 @@ where
             .map_with(|exprs, extra| Stmt::Print(exprs, extra.span()))
             .labelled("print");
 
-        // STMT ::= `return` EXPR `;`
+        // STMT ::= `return` EXPR? `;`
         let r#return =
             just(Token::Keyword(Keyword::Return))
-            .ignore_then(expr())
+            .ignore_then(expr().or_not())
             .then_ignore(just(Token::Semicolon))
             .map_with(|expr, extra| Stmt::Return(expr, extra.span()))
             .labelled("return");
@@ -524,7 +524,7 @@ where
     })
 }
 
-/// VAL_TYPE ::= `array` `[` EXPR? `]` VAL_TYPE
+/// VAL_TYPE ::= `array` `[` lit_int `]` VAL_TYPE
 ///          |   `boolean`
 ///          |   `char`
 ///          |   `integer`
@@ -540,17 +540,39 @@ where
         let array =
             just(Token::Keyword(Keyword::Array))
             .ignore_then(
-                expr().or_not()
+                select!{ Token::LitInt(i) => i }
+                    .validate(|i, extra, emitter| {
+                        match usize::try_from(i) {
+                            Ok(i) => {
+                                if i == 0 {
+                                    emitter.emit(Rich::custom(
+                                        extra.span(),
+                                        "array cannot be size `0`",
+                                    ));
+                                }
+                                i
+                            }
+                            Err(_) => {
+                                emitter.emit(Rich::custom(
+                                    extra.span(),
+                                    "array size must be expressable as an unsigned integer",
+                                ));
+                                0
+                            }
+                        }
+                    })
+                    .or_not()
                 .delimited_by(
                     just(Token::BraceLeft),
                     just(Token::BraceRight),
                 )
             )
             .then(val_type.clone())
-            .map_with(|(expr, r#type), extra|
+            .map_with(|(i, r#type), extra|
                 Type::Array(r#type::ArrayType {
                     r#type: Box::new(r#type),
-                    size: r#type::ArraySize::Expr(expr),
+                    size: if let Some(i) = i { r#type::ArraySize::Known(i) }
+                        else { r#type::ArraySize::Unknown },
                     span: extra.span(),
                 }) 
             );

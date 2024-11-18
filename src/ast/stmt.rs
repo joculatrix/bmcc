@@ -11,7 +11,7 @@ pub enum Stmt<'src> {
     Decl(Box<Decl<'src>>, SimpleSpan),
     Expr(Expr<'src>, SimpleSpan),
     Print(Vec<Expr<'src>>, SimpleSpan),
-    Return(Expr<'src>, SimpleSpan),
+    Return(Option<Expr<'src>>, SimpleSpan),
     If(IfStmt<'src>),
     For(ForStmt<'src>),
     While(WhileStmt<'src>),
