@@ -9,9 +9,10 @@ use super::*;
 /// ```
 /// let mut ast: Vec<Decl<'_>> = vec![];
 /// 
-/// let mut type_checker = TypecheckVisitor::new();
-/// if (errs @ type_checker.resolve(&mut ast)).len() != 0 {
-///     // handle errors...
+/// let type_checker = TypecheckVisitor::new();
+/// let errs = type_checker.resolve(&mut ast);
+/// if errs.len() != 0 {
+///     // handle errors
 /// }
 /// ```
 pub struct TypecheckVisitor<'a> {
@@ -42,7 +43,10 @@ impl<'a> TypecheckVisitor<'a> {
             Decl::Function(f) => {
                 if let Some(body) = &mut f.body {
                     let prev_return = self.curr_return_type.clone();
-                    self.curr_return_type = Some(*f.r#type.clone());
+                    let Type::Function(f_type) = *f.r#type.clone() else {
+                        panic!();
+                    };
+                    self.curr_return_type = Some(*f_type.return_type);
                     self.visit_stmt(body);
                     self.curr_return_type = prev_return;
                 }
@@ -353,10 +357,12 @@ impl<'a> TypecheckVisitor<'a> {
 
         match &*f_type.return_type {
             Type::Atomic(a, _) => Some(Type::Atomic(a.clone(), expr.span)),
-            Type::Array(a) => Some(Type::Array(r#type::ArrayType {
-                span: expr.span,
-                ..a.clone()
-            })),
+            Type::Array(a) => Some(Type::Array(
+                r#type::ArrayType {
+                    span: expr.span,
+                    ..a.clone()
+                }
+            )),
             // returning functions is forbidden and caught by the parser:
             Type::Function(_) => panic!(),
         }
@@ -407,13 +413,18 @@ impl<'a> TypecheckVisitor<'a> {
             },
             Stmt::Decl(ref mut decl, _) => self.visit_decl(decl),
             Stmt::Expr(ref expr, _) => { self.visit_expr(expr); }
-            Stmt::Print(exprs, _) => {
+            Stmt::Print(exprs, span) => {
                 for expr in exprs {
                     if let Some(
                         found @ Type::Array(..) |
                         found @ Type::Function(..)
                     ) = self.visit_expr(expr) {
-                        self.errs.push(TypecheckErr::InvalidPrint { found });
+                        self.errs.push(
+                            TypecheckErr::InvalidPrint {
+                                found,
+                                span: *span
+                            }
+                        );
                     }
                 }
             }
@@ -423,20 +434,24 @@ impl<'a> TypecheckVisitor<'a> {
                     if let Some(r#type) = r#type {
                         let expected = self.curr_return_type.clone().unwrap();
                         if r#type != expected {
-                            self.errs.push(TypecheckErr::WrongTypeReturn {
-                                expected,
-                                found: r#type,
-                            });
+                            self.errs.push(
+                                TypecheckErr::WrongTypeReturn {
+                                    expected,
+                                    found: r#type,
+                                }
+                            );
                         }
                     }
                 } else {
                     match self.curr_return_type.clone().unwrap() {
                         Type::Atomic(Atomic::Void, ..) => (),
                         r#type @ _ => {
-                            self.errs.push(TypecheckErr::WrongTypeReturn {
-                                expected: r#type,
-                                found: Type::Atomic(Atomic::Void, *span),
-                            });
+                            self.errs.push(
+                                TypecheckErr::WrongTypeReturn {
+                                    expected: r#type,
+                                    found: Type::Atomic(Atomic::Void, *span),
+                                }
+                            );
                         }
                     }
                 }
@@ -504,6 +519,8 @@ pub enum TypecheckErr<'a> {
     /// Attempt to print a non-atomic type
     InvalidPrint {
         found: Type<'a>,
+        /// Location of the print statement
+        span: SimpleSpan,
     },
     /// Attempt to assign a value to an already-initialized array, or a function
     TypeNotAssignable {

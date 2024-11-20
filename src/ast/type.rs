@@ -37,14 +37,14 @@ impl<'src> Display for Type<'src> {
                     Atomic::String => write!(f, "string"),
                     Atomic::Void => write!(f, "void"),
             }
-            Type::Array(a_type) => write!(f, "array [] `{}`", a_type.r#type),
+            Type::Array(a_type) => write!(f, "array [] {}", a_type.r#type),
             Type::Function(f_type) => {
-                write!(f, "function {} (", f_type.return_type);
+                write!(f, "function {} (", f_type.return_type)?;
                 for (index, param) in f_type.params.iter().enumerate() {
                     if index == 0 {
-                        write!(f, "{}", param.r#type);
+                        write!(f, "{}", param.r#type)?;
                     } else {
-                        write!(f, ", {}", param.r#type);
+                        write!(f, ", {}", param.r#type)?;
                     }
                 }
                 write!(f, ")")

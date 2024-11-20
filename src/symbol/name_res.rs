@@ -8,9 +8,10 @@ use super::*;
 /// ```
 /// let mut ast: Vec<Decl<'_>> = vec![];
 /// 
-/// let mut name_res = NameResVisitor::new();
-/// if (errs @ name_res.resolve(&mut ast)).len() != 0 {
-///     // handle errors...
+/// let name_res = NameResVisitor::new();
+/// let errs = name_res.resolve(&mut ast);
+/// if errs.len() != 0 {
+///     // handle errors
 /// }
 /// ```
 pub struct NameResVisitor<'a> {
@@ -68,8 +69,9 @@ impl<'a> NameResVisitor<'a> {
 
     fn visit_decl_fn(&mut self, f: &mut decl::Function<'a>) {
         if let Some(symbol) = self.symbol_table.get_symbol(f.name) {
-            match symbol.borrow_mut().kind {
-                SymbolKind::Func { ref mut defined } => {
+            let kind = symbol.borrow().kind.clone();
+            match kind {
+                SymbolKind::Func { ref defined } => {
                     if *defined {
                         self.errs.push(
                             NameResErr::AlreadyExists {
@@ -86,6 +88,10 @@ impl<'a> NameResVisitor<'a> {
                                 }
                             );
                         } else {
+                            let SymbolKind::Func { ref mut defined }
+                            = symbol.borrow_mut().kind else {
+                                panic!();
+                            };
                             *defined = true;
                         }
                     }
@@ -138,7 +144,7 @@ impl<'a> NameResVisitor<'a> {
         let is_global = self.symbol_table.scope_is_global();
         let symbol = Symbol {
             ident: v.name,
-            kind: if is_global { SymbolKind::Global } else { todo!() },
+            kind: if is_global { SymbolKind::Global } else { SymbolKind::Local },
             r#type: *v.r#type.clone(),
             decl_span: v.span,
         };

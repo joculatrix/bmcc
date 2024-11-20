@@ -38,7 +38,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             std::process::exit(1);
         });
 
-    let ast = parser()
+    let mut ast = parser()
         .parse(
             <&[(parse::Token, SimpleSpan)] as Input>
                 ::spanned(tokens.as_slice(), (src.len()..src.len()).into())
@@ -49,7 +49,19 @@ fn main() -> Result<(), Box<dyn Error>> {
             std::process::exit(1);
         });
 
-    println!("{:#?}", ast);
+    let name_res = symbol::NameResVisitor::new();
+    let errs = name_res.resolve(&mut ast);
+    if errs.len() != 0 {
+        error::name_res_errs(errs, &args.src, &src);
+        std::process::exit(1);
+    }
+
+    let type_checker = analysis::TypecheckVisitor::new();
+    let errs = type_checker.resolve(&mut ast);
+    if errs.len() != 0 {
+        error::typecheck_errs(errs, &args.src, &src);
+        std::process::exit(1);
+    }
 
     Ok(())
 }

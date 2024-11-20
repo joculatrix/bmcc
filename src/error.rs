@@ -126,7 +126,7 @@ fn build_name_res_err<'src>(
         NameResErr::NoMain => {
             let msg = format!("[{:#?}]: must have a function `main`", path);
 
-            let block = Block::new(&idx, []).unwrap()
+            let block = Block::new(&idx, [Label::new(0..0)]).unwrap()
                 .map_code(|c| CodeWidth::new(c, c.len()));
 
             CompilerErr { msg, block }
@@ -438,7 +438,7 @@ fn build_typecheck_err<'src>(
 
             CompilerErr { msg, block }
         }
-        TypecheckErr::InvalidPrint { found } => {
+        TypecheckErr::InvalidPrint { found, span } => {
             let msg = format!(
                 "[{:#?}]: cannot print type `{}`",
                 path,
@@ -450,6 +450,10 @@ fn build_typecheck_err<'src>(
                     &idx,
                     [
                         Label::new(found.get_span().into_range())
+                            .with_text(format!("has type `{}`", found))
+                            .with_style(|s| s.blue().to_string()),
+
+                        Label::new(span.into_range())
                             .with_style(|s| s.red().to_string()),
                     ],
                 )
