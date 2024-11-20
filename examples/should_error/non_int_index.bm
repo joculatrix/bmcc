@@ -1,0 +1,5 @@
+main: function integer () = {
+    x: array [5] integer;
+    print x[1]; // ok
+    print x["a"]; // not ok
+}

@@ -1,0 +1,8 @@
+fact: function integer (n: integer);
+
+main: function integer () = {
+    print fact;
+    
+    x: array [5] integer;
+    print x;
+}

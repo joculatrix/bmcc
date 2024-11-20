@@ -1,4 +1,4 @@
-/* using this example to test function prototyping works as expected */
+// check function prototypes work as intended
 
 fib: function integer (n: integer);
 

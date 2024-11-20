@@ -1,0 +1,5 @@
+main: function integer () = {
+    x: array [5] integer;
+    y: array [5] integer;
+    x = y; // expected: type `array` is not assignable
+}
