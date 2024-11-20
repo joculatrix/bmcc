@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use super::*;
 
 #[derive(Clone, Debug)]
@@ -8,12 +10,46 @@ pub enum Type<'src> {
 }
 
 impl<'src> Type<'src> {
+    pub fn get_span(&self) -> SimpleSpan {
+        match self {
+            Type::Atomic(.., span) => *span,
+            Type::Array(ArrayType{ span, .. }) => *span,
+            Type::Function(FunctionType { span, .. }) => *span,
+        }
+    }
+
     pub fn is_bool(&self) -> bool {
         matches!(self, Type::Atomic(Atomic::Boolean, ..))
     }
 
     pub fn is_int(&self) -> bool {
         matches!(self, Type::Atomic(Atomic::Integer, ..))
+    }
+}
+
+impl<'src> Display for Type<'src> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Type::Atomic(atomic, ..) =>  match atomic {
+                    Atomic::Boolean => write!(f, "boolean"),
+                    Atomic::Char => write!(f, "char"),
+                    Atomic::Integer => write!(f, "integer"),
+                    Atomic::String => write!(f, "string"),
+                    Atomic::Void => write!(f, "void"),
+            }
+            Type::Array(a_type) => write!(f, "array [] `{}`", a_type.r#type),
+            Type::Function(f_type) => {
+                write!(f, "function {} (", f_type.return_type);
+                for (index, param) in f_type.params.iter().enumerate() {
+                    if index == 0 {
+                        write!(f, "{}", param.r#type);
+                    } else {
+                        write!(f, ", {}", param.r#type);
+                    }
+                }
+                write!(f, ")")
+            }
+        }
     }
 }
 

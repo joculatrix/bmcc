@@ -21,10 +21,10 @@
 //!   thousands of statements. If it does, it's probably obviously bad code
 //!   regardless.
 //! * My first version of this compiler and the example code from Thain's
-//!   book are in C. That implementation leads to ugly structs, with often
-//!   extraneous fields for all cases included in every instance of the struct.
-//!   Keeping track of which fields are utilized for which kinds for which
-//!   purpose has a lot of mental and sometimes practical overhead. Rust's
+//!   book are in C. That implementation leads to (in my opinion) ugly structs,
+//!   with often extraneous fields for all cases included in every instance of
+//!   the struct. Keeping track of which fields are utilized for which kinds for
+//!   which purpose has a lot of mental and sometimes practical overhead. Rust's
 //!   type system, on the other hand, allows for much more elegant enum types,
 //!   where you know exactly what it uses.
 pub mod decl;

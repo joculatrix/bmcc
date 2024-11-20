@@ -1,3 +1,5 @@
 use crate::ast::*;
 
-pub mod typecheck;
+mod typecheck;
+
+pub use typecheck::{TypecheckErr, TypecheckVisitor};

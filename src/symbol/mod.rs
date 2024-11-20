@@ -8,7 +8,7 @@ use chumsky::span::SimpleSpan;
 use crate::ast::*;
 
 mod name_res;
-pub use name_res::NameResVisitor;
+pub use name_res::{NameResVisitor, NameResErr};
 
 /// Type alias for the [`Symbol`] containers used by the [`SymbolTable`] and
 /// for the various AST types to reference their associated symbols.
@@ -129,13 +129,13 @@ pub struct Symbol<'a> {
 }
 
 impl<'a> Symbol<'a> {
-    pub fn kind(&self) -> SymbolKind {
-        self.kind
-    }
+    pub fn decl_span(&self) -> SimpleSpan { self.decl_span }
 
-    pub fn r#type(&self) -> &Type<'a> {
-        &self.r#type
-    }
+    pub fn ident(&self) -> &'a str { self.ident }
+
+    pub fn kind(&self) -> SymbolKind { self.kind }
+
+    pub fn r#type(&self) -> &Type<'a> { &self.r#type }
 
     pub fn set_size(&mut self, size: r#type::ArraySize) {
         match &mut self.r#type {

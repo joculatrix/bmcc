@@ -78,9 +78,8 @@ impl<'a> TypecheckVisitor<'a> {
 
                     if a_size != r_size {
                         self.errs.push(TypecheckErr::WrongSizeArray {
-                            expected: a_size,
-                            found: r_size,
-                            span: v.span,
+                            expected: (a_size, a_type.span),
+                            found: (r_size, right.get_span()),
                         });
                     }
                 }
@@ -201,6 +200,16 @@ impl<'a> TypecheckVisitor<'a> {
 
         match expr.kind {
             expr::BinaryExprKind::Assign => {
+                if let Type::Array(..) | Type::Function(..) = left {
+                    self.errs.push(
+                        TypecheckErr::TypeNotAssignable {
+                            r#type: left,
+                            span: expr.span,
+                        }
+                    );
+                    return None;
+                }
+
                 if left != right {
                     self.errs.push(
                         TypecheckErr::AssignMismatch {
@@ -323,9 +332,8 @@ impl<'a> TypecheckVisitor<'a> {
         if expr.args.len() != f_type.params.len() {
             self.errs.push(
                 TypecheckErr::WrongNumArgs {
-                    expected: f_type.params.len(),
-                    found: expr.args.len(),
-                    span: expr.span,
+                    expected: (f_type.params.len(), f_type.span),
+                    found: (expr.args.len(), expr.span),
                 }
             );
         }
@@ -493,25 +501,24 @@ pub enum TypecheckErr<'a> {
     NonSizedArray {
         span: SimpleSpan,
     },
-    /// Attempt to declare an array of functions
-    ArrayOfFuncs {
-        found: Type<'a>,
-    },
     /// Attempt to print a non-atomic type
     InvalidPrint {
         found: Type<'a>,
     },
-    /// Function call has the wrong number of arguments
-    WrongNumArgs {
-        expected: usize,
-        found: usize,
+    /// Attempt to assign a value to an already-initialized array, or a function
+    TypeNotAssignable {
+        r#type: Type<'a>,
         span: SimpleSpan,
     },
-    /// Attempt to assign an array of known size to an array of a different size
+    /// Function call has the wrong number of arguments
+    WrongNumArgs {
+        expected: (usize, SimpleSpan),
+        found: (usize, SimpleSpan),
+    },
+    /// Array is given an explicit size which doesn't match the initializer
     WrongSizeArray {
-        expected: usize,
-        found: usize,
-        span: SimpleSpan,
+        expected: (usize, SimpleSpan),
+        found: (usize, SimpleSpan),
     },
     /// An argument to a function call has the wrong type
     WrongTypeArg {
