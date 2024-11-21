@@ -18,6 +18,13 @@ pub struct ControlFlowVisitor<'a> {
 }
 
 impl<'a> ControlFlowVisitor<'a> {
+    pub fn new() -> ControlFlowVisitor<'a> {
+        ControlFlowVisitor {
+            dead: vec![],
+            errs: vec![],
+        }
+    }
+
     /// Run control flow verification on the AST, ensuring every function
     /// returns in every branch (ignoring functions that return void).
     ///
@@ -95,6 +102,8 @@ impl<'a> ControlFlowVisitor<'a> {
                     )
                 );
                 return true;
+            } else if returned {
+                return true;
             }
         }
         false
@@ -156,6 +165,6 @@ impl<'a> ControlFlowVisitor<'a> {
 /// Errors pointing to functions that can't be guaranteed to return in every
 /// branch of execution.
 pub struct ControlFlowErr<'a> {
-    fn_name: &'a str,
-    fn_span: SimpleSpan,
+    pub fn_name: &'a str,
+    pub fn_span: SimpleSpan,
 }

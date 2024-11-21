@@ -1,0 +1,30 @@
+main: function integer () = {} // doesn't return
+
+// only returns in one branch
+f: function integer () = {
+    if (true) {
+        return 1;
+    }
+}
+
+// only returns in one branch (with else body)
+g: function integer () = {
+    if (true) {
+        return 1;
+    } else {
+        print "x";
+    }
+}
+
+h: function void () = {
+    print "doesn't have to return because type is void";
+}
+
+i: function integer () = {
+    if (true) {
+        return 1;
+    } else {
+        return 0;
+    }
+    print "this line should get marked as unreachable";
+}
