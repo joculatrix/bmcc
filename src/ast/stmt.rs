@@ -17,6 +17,21 @@ pub enum Stmt<'src> {
     While(WhileStmt<'src>),
 }
 
+impl<'src> Stmt<'src> {
+    pub fn get_span(&self) -> SimpleSpan {
+        match self {
+            Stmt::Block(.., span) => *span,
+            Stmt::Decl(.., span) => *span,
+            Stmt::Expr(.., span) => *span,
+            Stmt::Print(.., span) => *span,
+            Stmt::Return(.., span) => *span,
+            Stmt::If(IfStmt { span, .. }) => *span,
+            Stmt::For(ForStmt { span, .. }) => *span,
+            Stmt::While(WhileStmt { span, .. }) => *span,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct IfStmt<'src> {
 	pub condition: Box<Expr<'src>>,
