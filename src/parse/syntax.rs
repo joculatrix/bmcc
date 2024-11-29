@@ -22,7 +22,7 @@ where
 /// DECL_FN ::= ident `:` FN_TYPE `=` STMT
 ///         |   ident `:` FN_TYPE `;`
 ///
-/// FN_TYPE ::= `function` VAL_TYPE PARAMS
+/// FN_TYPE ::= `function` [`void` | VAL_TYPE] PARAMS
 ///
 /// PARAMS  ::= `(` ( PARAM ( `,` PARAM )* )? `)`
 ///         |   ident `:` VAL_TYPE
@@ -35,7 +35,11 @@ where
     let params =
         select!{ Token::Ident(i) => i }
         .then_ignore(just(Token::Colon))
-        .then(val_type())
+        .then(val_type().or(
+            just(Token::Keyword(Keyword::Void))
+                .to(Atomic::Void)
+                .map_with(|t, e| Type::Atomic(t, e.span()))
+        ))
         .map_with(|(i, t), extra| r#type::Param {
             ident: i,
             r#type: t,
@@ -529,7 +533,6 @@ where
 ///          |   `char`
 ///          |   `integer`
 ///          |   `string`
-///          |   `void`
 fn val_type<'src, I>()
 -> impl Parser<'src, I, Type<'src>, Err<Rich<'src, Token<'src>>>>
     + Clone
@@ -583,7 +586,6 @@ where
                 just(Token::Keyword(Keyword::Char)).to(Atomic::Char),
                 just(Token::Keyword(Keyword::Integer)).to(Atomic::Integer),
                 just(Token::Keyword(Keyword::String)).to(Atomic::String),
-                just(Token::Keyword(Keyword::Void)).to(Atomic::Void),
             ))
             .map_with(|t, extra| Type::Atomic(t, extra.span()));
 
