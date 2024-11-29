@@ -10,6 +10,7 @@ use parse::{lex, parser};
 mod analysis;
 mod ast;
 mod error;
+mod llvm;
 mod parse;
 mod symbol;
 
