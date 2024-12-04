@@ -37,18 +37,18 @@ pub enum Expr<'src> {
 	/// A function call.
 	Call(CallExpr<'src>),
 	/// An array.
-	Array(Vec<Expr<'src>>, SimpleSpan),
+	Array(Vec<Expr<'src>>, Option<Type<'src>>, SimpleSpan),
 }
 
 impl<'a> Expr<'a> {
     pub fn to_verb(&self) -> Option<&'static str> {
         match self {
-            Expr::Ident(_) => None,
-            Expr::BoolLit(_, _) => None,
-            Expr::CharLit(_, _) => None,
-            Expr::IntLit(_, _) => None,
-            Expr::StrLit(_, _) => None,
-            Expr::Index(_) => Some("index"),
+            Expr::Ident(..) => None,
+            Expr::BoolLit(..) => None,
+            Expr::CharLit(..) => None,
+            Expr::IntLit(..) => None,
+            Expr::StrLit(..) => None,
+            Expr::Index(..) => Some("index"),
             Expr::Binary(BinaryExpr { kind, .. }) => match kind {
                 BinaryExprKind::Assign => Some("assign"),
                 BinaryExprKind::Add => Some("add"),
@@ -66,12 +66,48 @@ impl<'a> Expr<'a> {
                 BinaryExprKind::Greater => Some("compare"),
                 BinaryExprKind::GreaterEq => Some("compare"),
             }
-            Expr::Inc(_, _) => Some("increment"),
-            Expr::Dec(_, _) => Some("decrement"),
-            Expr::Neg(_, _) => Some("negate"),
-            Expr::Not(_, _) => Some("logical NOT"),
-            Expr::Call(_) => Some("call"),
-            Expr::Array(_, _) => None,
+            Expr::Inc(..) => Some("increment"),
+            Expr::Dec(..) => Some("decrement"),
+            Expr::Neg(..) => Some("negate"),
+            Expr::Not(..) => Some("logical NOT"),
+            Expr::Call(..) => Some("call"),
+            Expr::Array(..) => None,
+        }
+    }
+
+    pub fn get_type(&self) -> Option<Type<'a>> {
+        match self {
+            Expr::Ident(IdentExpr { symbol, .. }) => match symbol {
+                Some(symbol) => Some(symbol.borrow().r#type().clone()),
+                None => None,
+            },
+            Expr::BoolLit(.., span) => Some(Type::Atomic(Atomic::Boolean, *span)),
+            Expr::CharLit(.., span) => Some(Type::Atomic(Atomic::Char, *span)),
+            Expr::IntLit(.., span) => Some(Type::Atomic(Atomic::Integer, *span)),
+            Expr::StrLit(.., span) => Some(Type::Atomic(Atomic::String, *span)),
+            Expr::Index(IndexExpr { r#type, .. }) => r#type.clone(),
+            Expr::Binary(BinaryExpr { kind, span, .. }) => match kind {
+                BinaryExprKind::Assign => None,
+                BinaryExprKind::Add | BinaryExprKind::Sub | BinaryExprKind::Mul
+                | BinaryExprKind::Div | BinaryExprKind::Exp | BinaryExprKind::Mod => {
+                    Some(Type::Atomic(Atomic::Integer, *span))
+                }
+                BinaryExprKind::Eq | BinaryExprKind::NotEq | BinaryExprKind::And
+                | BinaryExprKind::Or | BinaryExprKind::Less | BinaryExprKind::LessEq
+                | BinaryExprKind::Greater | BinaryExprKind::GreaterEq => {
+                    Some(Type::Atomic(Atomic::Boolean, *span))
+                }
+            },
+            Expr::Inc(.., span) => Some(Type::Atomic(Atomic::Integer, *span)),
+            Expr::Dec(.., span) => Some(Type::Atomic(Atomic::Integer, *span)),
+            Expr::Neg(.., span) => Some(Type::Atomic(Atomic::Integer, *span)),
+            Expr::Not(.., span) => Some(Type::Atomic(Atomic::Boolean, *span)),
+            Expr::Call(CallExpr { symbol, .. }) => match symbol {
+                Some(symbol) => Some(symbol.borrow().r#type().clone()),
+                None => None,
+            },
+            Expr::Array(_, r#type, _) => r#type.clone(),
+
         }
     }
 }
@@ -123,4 +159,5 @@ pub struct IndexExpr<'src> {
     pub array: Box<Expr<'src>>,
     pub index: Box<Expr<'src>>,
     pub span: SimpleSpan,
+    pub r#type: Option<Type<'src>>,
 }

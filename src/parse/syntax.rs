@@ -260,6 +260,7 @@ where
                         array,
                         index: Box::new(index),
                         span: extra.span(),
+                        r#type: None,
                     })
                 )),
             factor.clone(),
@@ -385,7 +386,7 @@ where
                 just(Token::CurlyLeft),
                 just(Token::CurlyRight),
             )
-            .map_with(|a, extra| Expr::Array(a, extra.span()));
+            .map_with(|a, extra| Expr::Array(a, None, extra.span()));
 
         choice((assign, logic.map(|e| *e), array))
     })
