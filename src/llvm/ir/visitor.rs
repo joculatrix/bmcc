@@ -1,32 +1,27 @@
-use std::cell::RefCell;
-use std::sync::LazyLock;
+use super::*;
 
-use crate::ast::*;
-use crate::symbol::*;
-
-use inkwell::values::AnyValueEnum;
 use inkwell::IntPredicate;
 use inkwell::{
     builder::Builder,
     context::Context,
     module::Module,
     types::{ BasicMetadataTypeEnum, BasicType },
-    values::FunctionValue,
+    values::{
+        AnyValueEnum,
+        FunctionValue,
+        IntValue,
+        PointerValue,
+    },
     AddressSpace,
 };
 
 pub struct LlvmGenVisitor<'a, 'ctx> {
+    alloca_store: AllocaStore<'ctx>,
     context: &'ctx Context,
     module: &'a Module<'ctx>,
     builder: &'a Builder<'ctx>,
-    curr_fn: RefCell<Option<FunctionValue<'ctx>>>,
+    curr_fn: Option<FunctionValue<'ctx>>,
 }
-
-/// Constant for readability. ADDRESS_SPACE_GLOBAL is defined as 1 in LLVM's
-/// AddressSpace enum.
-const ADDRESS_SPACE_GLOBAL: LazyLock<AddressSpace> = LazyLock::new(|| {
-    AddressSpace::from(1u16)
-});
 
 impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
     pub fn generate(
@@ -43,10 +38,16 @@ impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
         module: &'a Module<'ctx>,
         builder: &'a Builder<'ctx>,
     ) -> LlvmGenVisitor<'a, 'ctx> {
-        LlvmGenVisitor { context, module, builder, curr_fn: RefCell::new(None) }
+        LlvmGenVisitor {
+            alloca_store: AllocaStore::new(),
+            context,
+            module,
+            builder,
+            curr_fn: None
+        }
     }
 
-    fn run(&self, ast: &Vec<Decl<'_>>) -> Result<(), Vec<()>> {
+    fn run(&mut self, ast: &Vec<Decl<'_>>) -> Result<(), Vec<()>> {
         for decl in ast {
             match decl {
                 Decl::Var(v) => self.visit_decl_var(v),
@@ -56,7 +57,7 @@ impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
         Ok(())
     }
 
-    fn visit_decl_var(&self, var: &decl::Var<'_>) {
+    fn visit_decl_var(&mut self, var: &decl::Var<'_>) {
         let Some(symbol) = &var.symbol else {
             unreachable!("Symbols shouldn't be None during codegen");
         };
@@ -73,13 +74,13 @@ impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
                     var.name,
                 );
             }
-            SymbolKind::Local => todo!(),
+            SymbolKind::Local { num: _num } => todo!(),
             SymbolKind::Param {..} => unreachable!("Decl can't be SymbolKind::Param"),
             SymbolKind::Func {..} => unreachable!("decl::Var can't be SymbolKind::Func"),
         }
     }
 
-    fn visit_decl_fn(&self, r#fn: &decl::Function<'_>) {
+    fn visit_decl_fn(&mut self, r#fn: &decl::Function<'_>) {
         let llvm_fn = match self.module.get_function(r#fn.name) {
             None => self.gen_fn_prototype(r#fn),
             Some(llvm_fn) => llvm_fn,
@@ -92,12 +93,12 @@ impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
             );
             self.builder.position_at_end(block);
 
-            let mut curr_fn = self.curr_fn.borrow_mut();
-            *curr_fn = Some(llvm_fn);
+            self.curr_fn = Some(llvm_fn);
+            self.alloca_store.store_fn(llvm_fn, block);
 
             self.visit_stmt(body);
 
-            *curr_fn = None;
+            self.curr_fn = None;
         }
     }
 
@@ -134,9 +135,9 @@ impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
         llvm_fn
     }
 
-    fn visit_expr(&self, expr: &Expr<'_>) -> AnyValueEnum<'ctx> {}
+    fn visit_expr(&mut self, expr: &Expr<'_>) -> AnyValueEnum<'ctx> {}
 
-    fn visit_stmt(&self, stmt: &Stmt<'_>) {
+    fn visit_stmt(&mut self, stmt: &Stmt<'_>) {
         match stmt {
             Stmt::Block(stmts, ..) => for stmt in stmts { self.visit_stmt(stmt) },
             Stmt::Decl(decl, ..) => {
@@ -144,7 +145,9 @@ impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
                 self.visit_decl_var(var);
             }
             Stmt::Expr(expr, ..) => { self.visit_expr(expr); }
-            Stmt::Print(vec, ..) => todo!(),
+            Stmt::Print(exprs, ..) => for expr in exprs {
+                todo!()
+            },
             Stmt::Return(expr, ..) => todo!(),
             Stmt::If(if_stmt) => { self.visit_stmt_if(if_stmt); }
             Stmt::For(for_stmt) => { self.visit_stmt_for(for_stmt); }
@@ -152,7 +155,82 @@ impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
         }
     }
 
-    fn visit_stmt_if(&self, if_stmt: &stmt::IfStmt<'_>) {
+    fn visit_stmt_print_char(&self, val: IntValue<'ctx>) {
+        let printf = self.get_printf();
+
+        let format = self.builder.build_global_string_ptr("%c", "fmtstr").unwrap();
+        self.builder
+            .build_call(
+                printf,
+                &[
+                    format.as_pointer_value().into(),
+                    val.into(),
+                ],
+                "calltmp"
+            )
+            .unwrap();
+    }
+
+    fn visit_stmt_print_int(&self, val: IntValue<'ctx>) {
+        let printf = self.get_printf();
+
+        let format = self.builder.build_global_string_ptr("%d", "fmtstr").unwrap();
+        self.builder
+            .build_call(
+                printf,
+                &[
+                    format.as_pointer_value().into(),
+                    val.into(),
+                ],
+                "calltmp"
+            )
+            .unwrap();
+    }
+
+    fn visit_stmt_print_str(&self, val: PointerValue<'ctx>) {
+        let printf = self.get_printf();
+
+        let format = self.builder.build_global_string_ptr("%s", "fmtstr").unwrap();
+        self.builder
+            .build_call(
+                printf,
+                &[
+                    format.as_pointer_value().into(),
+                    val.into(),
+                ],
+                "calltmp"
+            )
+            .unwrap();
+    }
+
+    /// Retrieves the definition of `printf()` from the module, or defines it if
+    /// it doesn't already exist.
+    ///
+    /// The code of the function isn't provided - the compiler will rely on
+    /// an installation of libc to provide the implementation. `printf` is
+    /// defined as a function taking in a variable amount of pointer values and
+    /// returning a 32-bit integer.
+    fn get_printf(&self) -> FunctionValue<'ctx> {
+        match self.module.get_function("printf") {
+            Some(f) => f,
+            None => self.module.add_function(
+                "printf",
+                self.context
+                    .i32_type()
+                    .fn_type(
+                        &[
+                            BasicMetadataTypeEnum::PointerType(
+                                self.context.ptr_type(AddressSpace::default())
+                            ),
+                        ],
+                        true
+                    ),
+                None
+            )
+        }
+    }
+
+    fn visit_stmt_if(&mut self, if_stmt: &stmt::IfStmt<'_>) {
         let condition = match self.visit_expr(&*if_stmt.condition) {
             AnyValueEnum::IntValue(val) => val,
             _ => panic!("Condition expression should evaluate to bool/int"),
@@ -167,7 +245,7 @@ impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
             )
             .unwrap();
         
-        let curr_fn = self.curr_fn.borrow().expect("Stmt can't exist outside function");
+        let curr_fn = self.curr_fn.expect("Stmt can't exist outside function");
         
         let then = self.context.append_basic_block(curr_fn, "then");
         let r#else = match &if_stmt.else_body {
@@ -196,8 +274,8 @@ impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
         self.builder.position_at_end(cont);
     }
 
-    fn visit_stmt_for(&self, for_stmt: &stmt::ForStmt<'_>) {
-        let curr_fn = self.curr_fn.borrow().expect("Stmt can't exist outside function");
+    fn visit_stmt_for(&mut self, for_stmt: &stmt::ForStmt<'_>) {
+        let curr_fn = self.curr_fn.expect("Stmt can't exist outside function");
 
         let loop_header = self.context.append_basic_block(curr_fn, "loop");
         let loop_body = self.context.append_basic_block(curr_fn, "body");
@@ -231,8 +309,8 @@ impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
         self.builder.position_at_end(cont);
     }
 
-    fn visit_stmt_while(&self, while_stmt: &stmt::WhileStmt<'_>) {
-        let curr_fn = self.curr_fn.borrow().expect("Stmt can't exist outside function");
+    fn visit_stmt_while(&mut self, while_stmt: &stmt::WhileStmt<'_>) {
+        let curr_fn = self.curr_fn.expect("Stmt can't exist outside function");
 
         let loop_header = self.context.append_basic_block(curr_fn, "loop");
         let loop_body = self.context.append_basic_block(curr_fn, "body");
@@ -264,25 +342,3 @@ impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
     }
 }
 
-fn generate_basic_type<'ctx>(
-    context: &'ctx Context,
-    r#type: &Type<'_>,
-) -> Box<dyn BasicType<'ctx> + 'ctx> {
-    match r#type {
-        Type::Atomic(atomic, ..) => match atomic {
-            Atomic::Boolean => Box::new(context.bool_type()),
-            Atomic::Char => Box::new(context.i8_type()),
-            Atomic::Integer => Box::new(context.i64_type()),
-            Atomic::String => todo!(),
-            Atomic::Void => unreachable!("variable can't be type Void"),
-        },
-        Type::Array(a_type) => match a_type.size {
-            r#type::ArraySize::Known(size) => Box::new(
-                generate_basic_type(context, &*a_type.r#type)
-                    .array_type(size.try_into().unwrap())
-            ),
-            r#type::ArraySize::Unknown => todo!(),
-        },
-        Type::Function(..) => unreachable!("variable can't be type Function"),
-    }
-}

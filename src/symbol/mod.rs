@@ -104,12 +104,18 @@ impl<'a> SymbolTable<'a> {
 #[derive(Copy, Clone, Debug)]
 pub enum SymbolKind {
     Global,
-    Local,
+    Local {
+        /// This variable's ordinal position in the function's locals.
+        num: usize
+    },
     Param {
         /// This parameter's ordinal position in the function's parameters.
         num: usize
     },
-    Func { defined: bool },
+    Func {
+        /// Whether this function's body has already been defined.
+        defined: bool
+    },
 }
 
 #[derive(Debug)]

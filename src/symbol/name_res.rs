@@ -17,6 +17,8 @@ use super::*;
 pub struct NameResVisitor<'a> {
     errs: Vec<NameResErr<'a>>,
     symbol_table: SymbolTable<'a>,
+    /// Counter for variable definitions in the current function.
+    fn_var_count: usize,
 }
 
 impl<'a> NameResVisitor<'a> {
@@ -24,6 +26,7 @@ impl<'a> NameResVisitor<'a> {
         NameResVisitor {
             errs: vec![],
             symbol_table: SymbolTable::new(),
+            fn_var_count: 0,
         }
     }
 
@@ -127,6 +130,8 @@ impl<'a> NameResVisitor<'a> {
             .enumerate()
             .for_each(|(i, p)| self.visit_param(i, p));
 
+        self.fn_var_count = 0;
+
         if let Some(ref mut body) = f.body {
             self.visit_stmt(body);
         }
@@ -144,7 +149,13 @@ impl<'a> NameResVisitor<'a> {
         let is_global = self.symbol_table.scope_is_global();
         let symbol = Symbol {
             ident: v.name,
-            kind: if is_global { SymbolKind::Global } else { SymbolKind::Local },
+            kind: if is_global {
+                SymbolKind::Global
+            } else {
+                let num = self.fn_var_count;
+                self.fn_var_count += 1;
+                SymbolKind::Local { num }
+            },
             r#type: *v.r#type.clone(),
             decl_span: v.span,
         };
