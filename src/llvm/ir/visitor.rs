@@ -1,5 +1,6 @@
 use super::*;
 
+use inkwell::values::{AnyValue, BasicValue};
 use inkwell::IntPredicate;
 use inkwell::{
     builder::Builder,
@@ -8,6 +9,7 @@ use inkwell::{
     types::{ BasicMetadataTypeEnum, BasicType },
     values::{
         AnyValueEnum,
+        BasicValueEnum,
         FunctionValue,
         IntValue,
         PointerValue,
@@ -74,7 +76,15 @@ impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
                     var.name,
                 );
             }
-            SymbolKind::Local { num: _num } => todo!(),
+            SymbolKind::Local { num } => {
+                self.alloca_store.store_local(
+                    &self.builder,
+                    self.curr_fn.unwrap(),
+                    generate_basic_type(&self.context, symbol.r#type())
+                        .as_basic_type_enum(),
+                    num,
+                );
+            }
             SymbolKind::Param {..} => unreachable!("Decl can't be SymbolKind::Param"),
             SymbolKind::Func {..} => unreachable!("decl::Var can't be SymbolKind::Func"),
         }
@@ -108,8 +118,7 @@ impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
         let llvm_fn_type = {
                 let param_types = fn_type.params.iter()
                     .map(|param| {
-                        (*generate_basic_type(&self.context, &param.r#type))
-                            .as_basic_type_enum()
+                        generate_basic_type(&self.context, &param.r#type)
                             .into()
                     })
                     .collect::<Vec<BasicMetadataTypeEnum>>();
@@ -135,7 +144,128 @@ impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
         llvm_fn
     }
 
-    fn visit_expr(&mut self, expr: &Expr<'_>) -> AnyValueEnum<'ctx> {}
+    fn visit_expr(&mut self, expr: &Expr<'_>) -> BasicValueEnum<'ctx> {
+        match expr {
+            Expr::Ident(ident_expr) => self.visit_expr_ident(ident_expr),
+            Expr::BoolLit(val, ..) => {
+                let val = if *val { 1 } else { 0 };
+                self.context.bool_type()
+                    .const_int(val as u64, false)
+                    .as_basic_value_enum()
+            }
+            Expr::CharLit(val, ..) => {
+                assert!(val.is_ascii());
+                self.context.i8_type()
+                    .const_int(*val as u64, false)
+                    .as_basic_value_enum()
+            }
+            Expr::IntLit(val, ..) => {
+                self.context.i64_type()
+                    .const_int(*val as u64, true)
+                    .as_basic_value_enum()
+            }
+            Expr::StrLit(..) => todo!(),
+            Expr::Index(index_expr) => todo!(),
+            Expr::Binary(binary_expr) => todo!(),
+            Expr::Inc(expr, ..) => {
+                let BasicValueEnum::IntValue(val) = self.visit_expr(expr) else {
+                    unreachable!("Typechecking should catch non-integer increment")
+                };
+
+                self.builder
+                    .build_int_add(
+                        val,
+                        self.context.i64_type().const_int(1, true),
+                        "inctmp"
+                    )
+                    .unwrap()
+                    .as_basic_value_enum()
+            }
+            Expr::Dec(expr, ..) => {
+                let BasicValueEnum::IntValue(val) = self.visit_expr(expr) else {
+                    unreachable!("Typechecking should catch non-integer decrement")
+                };
+
+                self.builder
+                    .build_int_sub(
+                        val,
+                        self.context.i64_type().const_int(1, true),
+                        "dectmp"
+                    )
+                    .unwrap()
+                    .as_basic_value_enum()
+            }
+            Expr::Neg(expr, ..) => {
+                let BasicValueEnum::IntValue(val) = self.visit_expr(expr) else {
+                    unreachable!("Typechecking should catch non-integer negation")
+                };
+
+                self.builder
+                    .build_int_neg(val, "negtmp")
+                    .unwrap()
+                    .as_basic_value_enum()
+            }
+            Expr::Not(expr, ..) => todo!(),
+            Expr::Call(call_expr) => todo!(),
+            Expr::Array(vec, _, simple_span) => todo!(),
+        }
+    }
+
+    fn visit_expr_ident(
+        &mut self,
+        ident_expr: &expr::IdentExpr<'_>
+    ) -> BasicValueEnum<'ctx> {
+        let Some(ref symbol) = ident_expr.symbol else {
+            unreachable!("Symbols shouldn't be None during codegen")
+        };
+        let symbol = symbol.borrow();
+        let ptr = match symbol.kind() {
+            SymbolKind::Global => {
+                self.module
+                    .get_global(symbol.ident())
+                    .expect("Undefined references should be caught in name resolution")
+                    .as_pointer_value()
+            }
+            SymbolKind::Local { num } => {
+                *self.alloca_store
+                    .get_local(self.curr_fn.unwrap(), num)
+                    .expect("Undefined references should be caught in name resolution")
+            }
+            SymbolKind::Param { num } => {
+                self.curr_fn
+                    .expect("A global expression shouldn't have function parameters to reference")
+                    .get_nth_param(num as u32)
+                    .unwrap()
+                    .into_pointer_value()
+            }
+            SymbolKind::Func { .. } => {
+                unreachable!("Expr::Ident shouldn't be SymbolKind::Func")
+            }
+        };
+        match symbol.r#type() {
+            Type::Atomic(atomic, ..) => match atomic {
+                Atomic::Boolean => {
+                    self.builder
+                        .build_load(self.context.bool_type(), ptr, "loadtmp")
+                        .unwrap()
+                }
+                Atomic::Char => {
+                    self.builder
+                        .build_load(self.context.i8_type(), ptr, "loadtmp")
+                        .unwrap()
+                }
+                Atomic::Integer => {
+                    self.builder
+                        .build_load(self.context.i64_type(), ptr, "loadtmp")
+                        .unwrap()
+                }
+                Atomic::String => ptr.as_basic_value_enum(),
+                Atomic::Void => unreachable!("Value shouldn't be type void"),
+            }
+            Type::Array(..) => ptr.as_basic_value_enum(),
+            Type::Function(..) => unreachable!(),
+        }
+    }
 
     fn visit_stmt(&mut self, stmt: &Stmt<'_>) {
         match stmt {
@@ -232,7 +362,7 @@ impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
 
     fn visit_stmt_if(&mut self, if_stmt: &stmt::IfStmt<'_>) {
         let condition = match self.visit_expr(&*if_stmt.condition) {
-            AnyValueEnum::IntValue(val) => val,
+            BasicValueEnum::IntValue(val) => val,
             _ => panic!("Condition expression should evaluate to bool/int"),
         };
 
@@ -288,7 +418,7 @@ impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
         self.builder.position_at_end(loop_header);
         self.visit_expr(&*for_stmt.init_expr);
         let condition = match self.visit_expr(&*for_stmt.condition) {
-            AnyValueEnum::IntValue(val) => val,
+            BasicValueEnum::IntValue(val) => val,
             _ => panic!("Condition expression should evaluate to bool/int"),
         };
         let cmp = self.builder
@@ -321,7 +451,7 @@ impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
         
         self.builder.position_at_end(loop_header);
         let condition = match self.visit_expr(&*while_stmt.condition) {
-            AnyValueEnum::IntValue(val) => val,
+            BasicValueEnum::IntValue(val) => val,
             _ => panic!("Condition expression should evaluate to bool/int"),
         };
         let cmp = self.builder
