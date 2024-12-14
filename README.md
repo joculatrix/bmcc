@@ -9,10 +9,13 @@ If you're unfamiliar with Rust and want to build/run the project (after installi
 ```
 cargo run -- examples/hello_world.bm
 ```
-(Or `cargo build` and then `./bmcc examples/hello_world.bm`. Currently, running it with the hello_world
-example also won't output much as there's no code generation, so you can either input a print statement
-with the AST after parsing, or run one of the examples in the `should_error` folder to see diagnostic
-output!)
+(Currently, running it with the hello_world example also won't output much as there's no code generation,
+so you can either input a print statement with the AST after parsing, or run one of the examples in the
+`should_error` folder to see diagnostic output!)
+
+> [!IMPORTANT]
+> Building the compiler from source requires an installation of LLVM v18, as LLVM's API headers are called
+> externally.
 
 If you want to build the documentation:
 ```
