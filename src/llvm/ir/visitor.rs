@@ -166,7 +166,7 @@ impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
             }
             Expr::StrLit(..) => todo!(),
             Expr::Index(index_expr) => todo!(),
-            Expr::Binary(binary_expr) => todo!(),
+            Expr::Binary(binary_expr) => self.visit_expr_binary(binary_expr),
             Expr::Inc(expr, ..) => {
                 let BasicValueEnum::IntValue(val) = self.visit_expr(expr) else {
                     unreachable!("Typechecking should catch non-integer increment")
@@ -205,9 +205,129 @@ impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
                     .unwrap()
                     .as_basic_value_enum()
             }
-            Expr::Not(expr, ..) => todo!(),
-            Expr::Call(call_expr) => todo!(),
-            Expr::Array(vec, _, simple_span) => todo!(),
+            Expr::Not(expr, ..) => {
+                let BasicValueEnum::IntValue(val) = self.visit_expr(expr) else {
+                    unreachable!("Typechecking should catch non-bool (int) NOT")
+                };
+                
+                self.builder
+                    .build_not(val, "nottmp")
+                    .unwrap()
+                    .as_basic_value_enum()
+            }
+            Expr::Call(call_expr) => {
+                let Some(llvm_fn) = self.module.get_function(call_expr.ident) else {
+                    unreachable!("Undefined references should be caught in name resolution")
+                };
+
+                assert_eq!(call_expr.args.len(), llvm_fn.get_params().len());
+                let args = call_expr.args
+                    .iter()
+                    .map(|arg| self.visit_expr(arg).into())
+                    .collect::<Vec<_>>();
+                
+                self.builder
+                    .build_call(llvm_fn, &args, "calltmp")
+                    .unwrap()
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap()
+            }
+            Expr::Array(..) => todo!(),
+        }
+    }
+
+    fn visit_expr_binary(
+        &mut self,
+        expr: &expr::BinaryExpr<'_>
+    ) -> BasicValueEnum<'ctx> {
+        let (BasicValueEnum::IntValue(left), BasicValueEnum::IntValue(right))
+            = (self.visit_expr(&*expr.left), self.visit_expr(&*expr.right))
+            else {
+                unreachable!("Typechecking should catch non-integer/boolean binary expressions")
+            };
+        
+        match expr.kind {
+            expr::BinaryExprKind::Assign => todo!(),
+            expr::BinaryExprKind::Add => {
+                self.builder
+                    .build_int_add(left, right, "addtmp")
+                    .unwrap()
+                    .as_basic_value_enum()
+            }
+            expr::BinaryExprKind::Sub => {
+                self.builder
+                    .build_int_sub(left, right, "subtmp")
+                    .unwrap()
+                    .as_basic_value_enum()
+            }
+            expr::BinaryExprKind::Mul => {
+                self.builder
+                    .build_int_mul(left, right, "multmp")
+                    .unwrap()
+                    .as_basic_value_enum()
+            }
+            expr::BinaryExprKind::Div => {
+                self.builder
+                    .build_int_signed_div(left, right, "divtmp")
+                    .unwrap()
+                    .as_basic_value_enum()
+            }
+            expr::BinaryExprKind::Exp => todo!(),
+            expr::BinaryExprKind::Mod => {
+                self.builder
+                    .build_int_signed_rem(left, right, "modtmp")
+                    .unwrap()
+                    .as_basic_value_enum()
+            }
+            expr::BinaryExprKind::Eq => {
+                self.builder
+                    .build_int_compare(IntPredicate::EQ, left, right, "eqtmp")
+                    .unwrap()
+                    .as_basic_value_enum()
+            }
+            expr::BinaryExprKind::NotEq => {
+                self.builder
+                    .build_int_compare(IntPredicate::NE, left, right, "netmp")
+                    .unwrap()
+                    .as_basic_value_enum()
+            }
+            expr::BinaryExprKind::And => {
+                self.builder
+                    .build_and(left, right, "andtmp")
+                    .unwrap()
+                    .as_basic_value_enum()
+            }
+            expr::BinaryExprKind::Or => {
+                self.builder
+                    .build_or(left, right, "ortmp")
+                    .unwrap()
+                    .as_basic_value_enum()
+            }
+            expr::BinaryExprKind::Less => {
+                self.builder
+                    .build_int_compare(IntPredicate::SLT, left, right, "lttmp")
+                    .unwrap()
+                    .as_basic_value_enum()
+            }
+            expr::BinaryExprKind::LessEq => {
+                self.builder
+                    .build_int_compare(IntPredicate::SLE, left, right, "letmp")
+                    .unwrap()
+                    .as_basic_value_enum()
+            }
+            expr::BinaryExprKind::Greater => {
+                self.builder
+                    .build_int_compare(IntPredicate::SGT, left, right, "gttmp")
+                    .unwrap()
+                    .as_basic_value_enum()
+            }
+            expr::BinaryExprKind::GreaterEq => {
+                self.builder
+                    .build_int_compare(IntPredicate::SGE, left, right, "getmp")
+                    .unwrap()
+                    .as_basic_value_enum()
+            }
         }
     }
 
