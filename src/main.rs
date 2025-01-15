@@ -1,11 +1,11 @@
 #![allow(dead_code)]
 #![warn(rust_2024_compatibility)]
 
-use std::error::Error;
+use std::{error::Error, fs::File};
 use std::path::PathBuf;
-use chumsky::{input::Input, span::SimpleSpan, Parser};
+use chumsky::{ input::Input, span::SimpleSpan, Parser };
 
-use parse::{lex, parser};
+use parse::{ lex, parser };
 
 mod analysis;
 mod ast;
@@ -14,11 +14,51 @@ mod llvm;
 mod parse;
 mod symbol;
 
+/// Simple compiler for the B-Minor toy language from Douglas Thain's
+/// "Introduction to Compilers and Language Design".
 #[derive(clap::Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
     /// Source file to compile
+    #[arg(short, long)]
     src: PathBuf,
+    /// Output path
+    output: Option<PathBuf>,
+    /// The type of output to emit
+    #[arg(short, long, value_enum, default_value = "executable")]
+    emit: Emit,
+    /// Target triple of the intended build target; in the form
+    /// <arch><sub_arch>-<vendor>-<sys>-<env>, e.g. x86_64-linux-gnu
+    #[arg(short, long)]
+    target: Option<String>,
+    /// Specify a recognized C linker to use. If one isn't specified, the
+    /// compiler will try recognized linkers in succession.
+    #[arg(short, long)]
+    linker: Option<Linker>,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, clap::ValueEnum)]
+enum Emit {
+    /// Emit an executable
+    Executable,
+    /// Emit object file (.o)
+    Object,
+    /// Output assembly code (.s)
+    Assembly,
+    /// Output LLVM bitcode (.bc)
+    Bitcode,
+    /// Output LLVM IR (.ll)
+    LlvmIR,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, clap::ValueEnum)]
+enum Linker {
+    /// GNU linker
+    Ld,
+    /// MSVC linker
+    Link,
+    /// LLVM linker
+    Lld,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -111,4 +151,31 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     Ok(())
+}
+
+fn open_file(path: &PathBuf) -> Result<File, Box<dyn Error>> {
+    if path.exists() && !path.is_file() {
+        return Err("output path isn't a file name".into());
+    }
+
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+
+    Ok(File::create(&path)?)
+}
+
+fn get_output_path(
+    path: Option<PathBuf>, 
+    default: &str
+) -> Result<PathBuf, Box<dyn Error>> {
+    if let Some(path) = path {
+        if path.is_file() || !path.exists() {
+            Ok(path)
+        } else {
+            Err(format!("{:#?} exists and isn't a file", path).into())
+        }
+    } else {
+        Ok(PathBuf::from(default))
+    }
 }
