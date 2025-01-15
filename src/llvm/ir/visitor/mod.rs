@@ -8,7 +8,6 @@ use inkwell::{
     module::Module,
     types::{ BasicMetadataTypeEnum, BasicType },
     values::{
-        AnyValueEnum,
         BasicValueEnum,
         FunctionValue,
         IntValue,
@@ -80,7 +79,10 @@ impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
                     self.generate_basic_type(&*a_type.r#type)
                         .array_type(size.try_into().unwrap())
                         .as_basic_type_enum(),
-                r#type::ArraySize::Unknown => todo!(),
+                r#type::ArraySize::Unknown =>
+                    self.context
+                        .ptr_type(AddressSpace::default())
+                        .as_basic_type_enum(),
             },
             Type::Function(..) => unreachable!("variable can't be type Function"),
         }

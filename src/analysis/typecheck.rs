@@ -224,13 +224,13 @@ impl<'a> TypecheckVisitor<'a> {
                 if left != right {
                     self.errs.push(
                         TypecheckErr::AssignMismatch {
-                            left,
+                            left: left.clone(),
                             right,
                         }
                     );
                 }
 
-                return None;
+                return Some(left);
             }
             // expressions that expect and int and return an int
             expr::BinaryExprKind::Add

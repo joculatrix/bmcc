@@ -86,8 +86,8 @@ impl<'a> Expr<'a> {
             Expr::IntLit(.., span) => Some(Type::Atomic(Atomic::Integer, *span)),
             Expr::StrLit(.., span) => Some(Type::Atomic(Atomic::String, *span)),
             Expr::Index(IndexExpr { r#type, .. }) => r#type.clone(),
-            Expr::Binary(BinaryExpr { kind, span, .. }) => match kind {
-                BinaryExprKind::Assign => None,
+            Expr::Binary(BinaryExpr { kind, span, left, .. }) => match kind {
+                BinaryExprKind::Assign => left.get_type(),
                 BinaryExprKind::Add | BinaryExprKind::Sub | BinaryExprKind::Mul
                 | BinaryExprKind::Div | BinaryExprKind::Exp | BinaryExprKind::Mod => {
                     Some(Type::Atomic(Atomic::Integer, *span))

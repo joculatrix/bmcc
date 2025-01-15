@@ -14,8 +14,15 @@ impl<'ctx> FunctionAlloca<'ctx> {
         self.locals.get(&num)
     }
 
-    fn store_local<T>(&mut self, builder: &Builder<'ctx>, r#type: T, num: usize)
-    where T: BasicType<'ctx> {
+    fn store_local<T>(
+        &mut self,
+        builder: &Builder<'ctx>,
+        r#type: T,
+        num: usize
+    ) -> PointerValue<'ctx>
+    where
+        T: BasicType<'ctx>
+    {
         let Some(builder_pos) = builder.get_insert_block() else { panic!() };
         
         if let Some(first) = self.entry.get_first_instruction() {
@@ -28,6 +35,8 @@ impl<'ctx> FunctionAlloca<'ctx> {
         self.locals.insert(num, alloca);
 
         builder.position_at_end(builder_pos);
+
+        alloca
     }
 }
 
@@ -63,9 +72,12 @@ impl<'ctx> AllocaStore<'ctx> {
         function: FunctionValue<'ctx>,
         r#type: T,
         num: usize
-    ) where T: BasicType<'ctx> {
+    ) -> PointerValue<'ctx>
+    where
+        T: BasicType<'ctx> 
+    {
         if let Some(fn_alloca) = self.alloca_map.get_mut(&function) {
-            fn_alloca.store_local(builder, r#type, num);
+            fn_alloca.store_local(builder, r#type, num)
         } else {
             panic!("alloca store attempted to access unstored function")
         }

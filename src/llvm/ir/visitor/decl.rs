@@ -6,26 +6,35 @@ impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
             unreachable!("Symbols shouldn't be None during codegen");
         };
 
+        let val = match &var.rhs {
+            Some(expr) => self.visit_expr(&expr),
+            None => self.generate_basic_type(&var.r#type).const_zero(),
+        };
+
         let symbol = symbol.borrow();
 
         match symbol.kind() {
             SymbolKind::Global => {
                 let r#type = self.generate_basic_type(symbol.r#type());
 
-                self.module.add_global(
-                    r#type.as_basic_type_enum(),
-                    Some(*ADDRESS_SPACE_GLOBAL),
-                    var.name,
-                );
+                self.module
+                    .add_global(
+                        r#type.as_basic_type_enum(),
+                        Some(*ADDRESS_SPACE_GLOBAL),
+                        var.name,
+                    )
+                    .set_initializer(&val);
             }
             SymbolKind::Local { num } => {
-                self.alloca_store.store_local(
+                let alloca = self.alloca_store.store_local(
                     &self.builder,
                     self.curr_fn.unwrap(),
                     self.generate_basic_type(symbol.r#type())
                         .as_basic_type_enum(),
                     num,
                 );
+
+                self.builder.build_store(alloca, val);
             }
             SymbolKind::Param {..} => unreachable!("Decl can't be SymbolKind::Param"),
             SymbolKind::Func {..} => unreachable!("decl::Var can't be SymbolKind::Func"),
@@ -58,19 +67,19 @@ impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
         let Type::Function(fn_type) = &*r#fn.r#type else { unreachable!() };
 
         let llvm_fn_type = {
-                let param_types = fn_type.params.iter()
-                    .map(|param| {
-                        self.generate_basic_type(&param.r#type)
-                            .into()
-                    })
-                    .collect::<Vec<BasicMetadataTypeEnum>>();
+            let param_types = fn_type.params.iter()
+                .map(|param| {
+                    self.generate_basic_type(&param.r#type)
+                        .into()
+                })
+                .collect::<Vec<BasicMetadataTypeEnum>>();
 
-                if let Type::Atomic(Atomic::Void, ..) = &*fn_type.return_type {
-                    self.context.void_type().fn_type(&param_types, false)
-                } else {
-                    self.generate_basic_type(&*fn_type.return_type)
-                        .fn_type(&param_types, false)
-                }
+            if let Type::Atomic(Atomic::Void, ..) = &*fn_type.return_type {
+                self.context.void_type().fn_type(&param_types, false)
+            } else {
+                self.generate_basic_type(&*fn_type.return_type)
+                    .fn_type(&param_types, false)
+            }
         };
 
         let llvm_fn = self.module.add_function(

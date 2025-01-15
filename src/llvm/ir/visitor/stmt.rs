@@ -10,13 +10,73 @@ impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
             }
             Stmt::Expr(expr, ..) => { self.visit_expr(expr); }
             Stmt::Print(exprs, ..) => for expr in exprs {
-                todo!()
+                let val = self.visit_expr(expr);
+                match val {
+                    BasicValueEnum::IntValue(val) => match expr.get_type().unwrap() {
+                        Type::Atomic(Atomic::Integer, ..) => self.visit_stmt_print_int(val),
+                        Type::Atomic(Atomic::Char, ..) => self.visit_stmt_print_char(val),
+                        Type::Atomic(Atomic::Boolean, ..) => self.visit_stmt_print_bool(val),
+                        _ => unreachable!(),
+                    }
+                    BasicValueEnum::PointerValue(val) => self.visit_stmt_print_str(val),
+                    _ => unreachable!("Typechecking should catch invalid print types"),
+                }
             },
-            Stmt::Return(expr, ..) => todo!(),
+            Stmt::Return(expr, ..) => {
+                let val = match expr {
+                    Some(expr) => Some(Box::new(self.visit_expr(expr)) as Box<dyn BasicValue>),
+                    None => None,
+                };
+
+                self.builder.build_return(val.as_deref());
+            }
             Stmt::If(if_stmt) => { self.visit_stmt_if(if_stmt); }
             Stmt::For(for_stmt) => { self.visit_stmt_for(for_stmt); }
             Stmt::While(while_stmt) => { self.visit_stmt_while(while_stmt); }
         }
+    }
+
+    fn visit_stmt_print_bool(&self, val: IntValue<'ctx>) {
+        let cmp = self.builder
+            .build_int_compare(
+                IntPredicate::NE,
+                val,
+                self.context.i64_type().const_zero(),
+                "ifcond",
+            )
+            .unwrap();
+        
+        let curr_fn = self.curr_fn.expect("Stmt can't exist outside function");
+        
+        let then = self.context.append_basic_block(curr_fn, "then");
+        let r#else = self.context.append_basic_block(curr_fn, "else");
+        let cont = self.context.append_basic_block(curr_fn, "cont");
+
+        self.builder.build_conditional_branch(
+            cmp,
+            then,
+            r#else,
+        );
+
+        self.builder.position_at_end(then);
+        self.visit_stmt_print_str(
+            self.builder
+                .build_global_string_ptr("true", "truelit")
+                .unwrap()
+                .as_pointer_value()
+        );
+        self.builder.build_unconditional_branch(cont);
+
+        self.builder.position_at_end(r#else);
+        self.visit_stmt_print_str(
+            self.builder
+                .build_global_string_ptr("false", "falselit")
+                .unwrap()
+                .as_pointer_value()
+        );
+        self.builder.build_unconditional_branch(cont);
+
+        self.builder.position_at_end(cont);
     }
 
     fn visit_stmt_print_char(&self, val: IntValue<'ctx>) {
