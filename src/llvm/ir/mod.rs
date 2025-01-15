@@ -9,7 +9,6 @@ use std::sync::LazyLock;
 
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
-use inkwell::context::Context;
 use inkwell::types::BasicType;
 use inkwell::values::FunctionValue;
 use inkwell::values::PointerValue;

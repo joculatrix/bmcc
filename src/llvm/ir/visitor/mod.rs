@@ -1,9 +1,9 @@
 use super::*;
 
-use inkwell::values::{AnyValue, BasicValue};
+use inkwell::values::BasicValue;
 use inkwell::IntPredicate;
 use inkwell::{
-    builder::Builder,
+    builder::{ Builder, BuilderError },
     context::Context,
     module::Module,
     types::{ BasicMetadataTypeEnum, BasicType },
@@ -29,16 +29,7 @@ pub struct LlvmGenVisitor<'a, 'ctx> {
 }
 
 impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
-    pub fn generate(
-        ast: &Expr<'_>,
-        context: &'ctx Context,
-        module: &'a Module<'ctx>,
-        builder: &'a Builder<'ctx>,
-    ) {
-        let visitor = LlvmGenVisitor::new(context, module, builder);
-    }
-
-    fn new(
+    pub fn new(
         context: &'ctx Context,
         module: &'a Module<'ctx>,
         builder: &'a Builder<'ctx>,
@@ -52,14 +43,22 @@ impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
         }
     }
 
-    fn run(&mut self, ast: &Vec<Decl<'_>>) -> Result<(), Vec<()>> {
+    pub fn resolve(mut self, ast: &Vec<Decl<'_>>) -> Vec<BuilderError> {
+        let mut errs = vec![];
+
         for decl in ast {
-            match decl {
+            let res = match decl {
                 Decl::Var(v) => self.visit_decl_var(v),
                 Decl::Function(f) => self.visit_decl_fn(f),
+            };
+
+            match res {
+                Err(e) => errs.push(e),
+                Ok(_) => (),
             }
         }
-        Ok(())
+
+        errs
     }
 
     fn generate_basic_type(

@@ -1,13 +1,16 @@
 use super::*;
 
 impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
-    pub(super) fn visit_decl_var(&mut self, var: &ast::decl::Var<'_>) {
+    pub(super) fn visit_decl_var(
+        &mut self,
+        var: &ast::decl::Var<'_>
+    ) -> Result<(), BuilderError> {
         let Some(symbol) = &var.symbol else {
             unreachable!("Symbols shouldn't be None during codegen");
         };
 
         let val = match &var.rhs {
-            Some(expr) => self.visit_expr(&expr),
+            Some(expr) => self.visit_expr(&expr)?,
             None => self.generate_basic_type(&var.r#type).const_zero(),
         };
 
@@ -34,14 +37,19 @@ impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
                     num,
                 );
 
-                self.builder.build_store(alloca, val);
+                self.builder.build_store(alloca, val)?;
             }
             SymbolKind::Param {..} => unreachable!("Decl can't be SymbolKind::Param"),
             SymbolKind::Func {..} => unreachable!("decl::Var can't be SymbolKind::Func"),
         }
+
+        Ok(())
     }
 
-    pub(super) fn visit_decl_fn(&mut self, r#fn: &ast::decl::Function<'_>) {
+    pub(super) fn visit_decl_fn(
+        &mut self,
+        r#fn: &ast::decl::Function<'_>
+    ) -> Result<(), BuilderError> {
         let llvm_fn = match self.module.get_function(r#fn.name) {
             None => self.gen_fn_prototype(r#fn),
             Some(llvm_fn) => llvm_fn,
@@ -57,10 +65,12 @@ impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
             self.curr_fn = Some(llvm_fn);
             self.alloca_store.store_fn(llvm_fn, block);
 
-            self.visit_stmt(body);
+            self.visit_stmt(body)?;
 
             self.curr_fn = None;
         }
+
+        Ok(())
     }
 
     fn gen_fn_prototype(&self, r#fn: &ast::decl::Function<'_>) -> FunctionValue<'ctx> {
