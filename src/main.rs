@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 #![warn(rust_2024_compatibility)]
 
-use std::{error::Error, fs::File};
+use std::error::Error;
 use std::path::PathBuf;
 use chumsky::{ input::Input, span::SimpleSpan, Parser };
 
@@ -9,6 +9,7 @@ use parse::{ lex, parser };
 
 mod analysis;
 mod ast;
+mod codegen;
 mod error;
 mod llvm;
 mod parse;
@@ -20,9 +21,9 @@ mod symbol;
 #[command(version, about, long_about = None)]
 struct Args {
     /// Source file to compile
-    #[arg(short, long)]
     src: PathBuf,
     /// Output path
+    #[arg(short, long)]
     output: Option<PathBuf>,
     /// The type of output to emit
     #[arg(short, long, value_enum, default_value = "executable")]
@@ -47,8 +48,8 @@ enum Emit {
     Assembly,
     /// Output LLVM bitcode (.bc)
     Bitcode,
-    /// Output LLVM IR (.ll)
-    LlvmIR,
+    /// Output the Abstract Syntax Tree
+    Ast,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, clap::ValueEnum)]
@@ -121,6 +122,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         std::process::exit(1);
     }
 
+    if matches!(args.emit, Emit::Ast) {
+        println!("{:#?}", ast);
+        return Ok(());
+    }
+
     let type_checker = analysis::TypecheckVisitor::new();
     let errs = type_checker.resolve(&mut ast);
     if errs.len() != 0 {
@@ -150,32 +156,16 @@ fn main() -> Result<(), Box<dyn Error>> {
         std::process::exit(1);
     }
 
+    codegen::codegen(
+        &ast,
+        codegen::EmitConfig {
+            emit: args.emit,
+            output: args.output,
+            target: args.target,
+            linker: args.linker,
+        }
+    )?;
+
     Ok(())
 }
 
-fn open_file(path: &PathBuf) -> Result<File, Box<dyn Error>> {
-    if path.exists() && !path.is_file() {
-        return Err("output path isn't a file name".into());
-    }
-
-    if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir)?;
-    }
-
-    Ok(File::create(&path)?)
-}
-
-fn get_output_path(
-    path: Option<PathBuf>, 
-    default: &str
-) -> Result<PathBuf, Box<dyn Error>> {
-    if let Some(path) = path {
-        if path.is_file() || !path.exists() {
-            Ok(path)
-        } else {
-            Err(format!("{:#?} exists and isn't a file", path).into())
-        }
-    } else {
-        Ok(PathBuf::from(default))
-    }
-}

@@ -3,7 +3,14 @@ use super::*;
 impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
     pub(super) fn visit_stmt(&mut self, stmt: &Stmt<'_>) -> Result<(), BuilderError> {
         match stmt {
-            Stmt::Block(stmts, ..) => for stmt in stmts { self.visit_stmt(stmt)? },
+            Stmt::Block(stmts, ..) => {
+                for stmt in stmts {
+                    self.visit_stmt(stmt)?;
+                    if matches!(stmt, Stmt::Return(..)) {
+                        break;
+                    }
+                }
+            },
             Stmt::Decl(decl, ..) => {
                 let Decl::Var(var) = &**decl else { unreachable!() };
                 self.visit_decl_var(var)?;
@@ -43,7 +50,7 @@ impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
             .build_int_compare(
                 IntPredicate::NE,
                 val,
-                self.context.i64_type().const_zero(),
+                self.context.bool_type().const_zero(),
                 "ifcond",
             )?;
         
@@ -171,7 +178,7 @@ impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
             .build_int_compare(
                 IntPredicate::NE,
                 condition,
-                self.context.i64_type().const_zero(),
+                self.context.bool_type().const_zero(),
                 "ifcond",
             )?;
         
@@ -192,13 +199,17 @@ impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
 
         self.builder.position_at_end(then);
         self.visit_stmt(&*if_stmt.body)?;
-        self.builder.build_unconditional_branch(cont)?;
+        if !then.get_last_instruction().is_some_and(|i| i.is_terminator()) {
+            self.builder.build_unconditional_branch(cont)?;
+        }
 
         if let Some(else_body) = &if_stmt.else_body {
             let r#else = r#else.expect("Else block should exist when else body exists");
             self.builder.position_at_end(r#else);
             self.visit_stmt(&**else_body)?;
-            self.builder.build_unconditional_branch(cont)?;
+            if !r#else.get_last_instruction().is_some_and(|i| i.is_terminator()) {
+                self.builder.build_unconditional_branch(cont)?;
+            }
         }
 
         self.builder.position_at_end(cont);
@@ -230,7 +241,7 @@ impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
             .build_int_compare(
                 IntPredicate::NE,
                 condition,
-                self.context.i64_type().const_zero(),
+                self.context.bool_type().const_zero(),
                 "lpcond",
             )?;
         self.builder.build_conditional_branch(cmp, loop_body, cont)?;
@@ -267,7 +278,7 @@ impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
             .build_int_compare(
                 IntPredicate::NE,
                 condition,
-                self.context.i64_type().const_zero(),
+                self.context.bool_type().const_zero(),
                 "lpcond",
             )?;
         self.builder.build_conditional_branch(cmp, loop_body, cont)?;

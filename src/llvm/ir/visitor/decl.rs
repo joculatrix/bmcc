@@ -1,3 +1,5 @@
+use chumsky::ParseResult;
+
 use super::*;
 
 impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
@@ -65,7 +67,36 @@ impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
             self.curr_fn = Some(llvm_fn);
             self.alloca_store.store_fn(llvm_fn, block);
 
+            for (i, param) in llvm_fn.get_param_iter().enumerate() {
+                let alloca = self.alloca_store
+                    .store_local(
+                        self.builder,
+                        llvm_fn,
+                        param.get_type(),
+                        i,
+                    );
+
+                self.builder.build_store(alloca, param)?;
+            };
+
             self.visit_stmt(body)?;
+
+            for block in llvm_fn.get_basic_blocks().iter().rev() {
+                match block.get_last_instruction() {
+                    Some(instruction) => {
+                        if !instruction.is_terminator() {
+                            if llvm_fn.get_type().get_return_type().is_none() {
+                                self.builder.position_at(*block, &instruction);
+                                self.builder.build_return(None)?;
+                            }
+                        }
+                    }
+                    None => {
+                        block.remove_from_function();
+                    }
+                }
+            }
+            llvm_fn.verify(true);
 
             self.curr_fn = None;
         }

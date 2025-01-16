@@ -58,6 +58,11 @@ impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
             }
         }
 
+        if let Err(e) = self.module.verify() {
+            eprintln!("{}", e);
+            std::process::exit(1);
+        }
+
         errs
     }
 

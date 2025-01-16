@@ -103,7 +103,13 @@ impl<'a> Expr<'a> {
             Expr::Neg(.., span) => Some(Type::Atomic(Atomic::Integer, *span)),
             Expr::Not(.., span) => Some(Type::Atomic(Atomic::Boolean, *span)),
             Expr::Call(CallExpr { symbol, .. }) => match symbol {
-                Some(symbol) => Some(symbol.borrow().r#type().clone()),
+                Some(symbol) => {// Some(symbol.borrow().r#type().clone()),
+                    let Type::Function(fn_type) = symbol.borrow().r#type().clone() else {
+                        unreachable!("CallExpr symbol should be type Function")
+                    };
+
+                    Some(*fn_type.return_type)
+                }
                 None => None,
             },
             Expr::Array(_, r#type, _) => r#type.clone(),

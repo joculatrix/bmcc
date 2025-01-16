@@ -1,5 +1,5 @@
 mod alloca;
-mod visitor;
+pub mod visitor;
 
 use alloca::*;
 use inkwell::types::BasicTypeEnum;

@@ -82,6 +82,7 @@ impl<'a> NameResVisitor<'a> {
                                 span: f.span,
                             }
                         );
+                        return;
                     } else {
                         if *f.r#type != symbol.borrow().r#type {
                             self.errs.push(
@@ -90,6 +91,7 @@ impl<'a> NameResVisitor<'a> {
                                     span: f.span,
                                 }
                             );
+                            return;
                         } else {
                             let SymbolKind::Func { ref mut defined }
                             = symbol.borrow_mut().kind else {
@@ -106,9 +108,9 @@ impl<'a> NameResVisitor<'a> {
                             span: f.span,
                         }
                     );
+                    return;
                 }
             }
-            return;
         }
 
         let Type::Function(ref mut r#type) = *f.r#type.as_mut() else { panic!() };

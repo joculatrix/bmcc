@@ -304,11 +304,9 @@ impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
                     .expect("Undefined references should be caught in name resolution")
             }
             SymbolKind::Param { num } => {
-                self.curr_fn
-                    .expect("A global expression shouldn't have function parameters to reference")
-                    .get_nth_param(num as u32)
-                    .unwrap()
-                    .into_pointer_value()
+                *self.alloca_store
+                    .get_local(self.curr_fn.unwrap(), num)
+                    .expect("Undefined references should be caught in name resolution")
             }
             SymbolKind::Func { .. } => {
                 unreachable!("Expr::Ident shouldn't be SymbolKind::Func")

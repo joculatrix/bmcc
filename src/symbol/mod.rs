@@ -17,6 +17,7 @@ pub type SymbolRef<'a> = Rc<RefCell<Symbol<'a>>>;
 /// A type for holding and interfacing with a stack of tables mapping
 /// identifiers to [`Symbol`]s in each scope of the program. Used for name
 /// resolution -- see [`NameResVisitor`].
+#[derive(Debug)]
 pub struct SymbolTable<'a> {
     stack: Vec<HashMap<&'a str, SymbolRef<'a>>>,
 }
