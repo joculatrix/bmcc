@@ -101,11 +101,7 @@ fn link(
 ) -> Result<(), Box<dyn Error>> {
     match linker {
         Some(link) => {
-            let res = match link {
-                Linker::Ld => try_linker(Linker::Ld, obj, out)?,
-                Linker::Link => try_linker(Linker::Link, obj, out)?,
-                Linker::Lld => try_linker(Linker::Lld, obj, out)?,
-            };
+            let res = try_linker(link, obj, out)?;
 
             if res {
                 Ok(())
@@ -114,7 +110,7 @@ fn link(
             }
         },
         None => {
-            for link in [Linker::Ld, Linker::Link, Linker::Lld] {
+            for link in [Linker::Clang, Linker::Gcc, Linker::Msvc] {
                 if try_linker(link, obj, out)? {
                     return Ok(());
                 }
@@ -137,15 +133,20 @@ fn try_linker(
     out: &PathBuf
 ) -> Result<bool, Box<dyn Error>> {
     let (obj, out) = (obj.to_str().unwrap(), out.to_str().unwrap());
+    let out_arg;
+
     let (cmd, args) = match linker {
-        Linker::Ld => {
-            ("ld", [&format!("-o{}", out), "--entry=main", obj])
+        Linker::Clang => {
+            out_arg = format!("-o{}", out);
+            ("clang", vec![&out_arg, obj])
         }
-        Linker::Link => {
-            ("Link", [&format!("/OUT:{}", out), "/ENTRY:main", obj])
+        Linker::Gcc => {
+            out_arg = format!("-o{}", out);
+            ("gcc", vec![&out_arg, "-no-pie", obj])
         }
-        Linker::Lld => {
-            ("lld", [&format!("-o{}", out), "--entry=main", obj])
+        Linker::Msvc => {
+            out_arg = format!("/OUT:{}", out);
+            ("msvc", vec![obj, "/link", &out_arg])
         }
     };
 
