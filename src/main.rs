@@ -48,6 +48,8 @@ enum Emit {
     Assembly,
     /// Output LLVM bitcode (.bc)
     Bitcode,
+    /// Output LLVM IR (.ll)
+    LlvmIR,
     /// Output the Abstract Syntax Tree
     Ast,
 }

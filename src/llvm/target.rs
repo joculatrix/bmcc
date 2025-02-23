@@ -1,6 +1,6 @@
 use inkwell::{
     module::Module,
-    targets::{FileType, InitializationConfig, Target, TargetMachine, TargetMachineOptions, TargetTriple}, OptimizationLevel
+    targets::{FileType, InitializationConfig, RelocMode, Target, TargetMachine, TargetMachineOptions, TargetTriple}, OptimizationLevel
 };
 use std::{error::Error, path::PathBuf};
 

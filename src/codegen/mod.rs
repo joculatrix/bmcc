@@ -1,5 +1,5 @@
 use crate::llvm;
-use std::{error::Error, fs::File, path::PathBuf};
+use std::{error::Error, fs::File, io::Write, path::PathBuf};
 use inkwell::{context::Context, module::Module, targets::{FileType, TargetMachine}};
 
 use crate::{
@@ -80,6 +80,11 @@ fn emit(
             open_file(&path)?;
             module.write_bitcode_to_path(&path.as_path());
         },
+        Emit::LlvmIR => {
+            let path = get_output_path(config.output, "a.ll")?;
+            let mut file = open_file(&path)?;
+            file.write_all(module.to_string().as_bytes())?;
+        }
         Emit::Ast => unreachable!(),
     }
     Ok(())
