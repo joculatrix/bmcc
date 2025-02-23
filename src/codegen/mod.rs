@@ -131,27 +131,17 @@ fn try_linker(
     obj: &PathBuf,
     out: &PathBuf
 ) -> Result<bool, Box<dyn Error>> {
-    let (cmd, args) = {
-        let (obj, out) = (obj.to_str().unwrap(), out.to_str().unwrap());
-
-        let cmd;
-        let mut args: Vec<&str> = vec![];
-        match linker {
-            Linker::Ld => {
-                cmd = "ld";
-                args.extend_from_slice(&[&format!("-o{}", out), obj, "--entry=main"]);
-            }
-            Linker::Link => {
-                cmd = "Link";
-                args.extend_from_slice(&[&format!("/OUT:{}", out), obj]);
-            }
-            Linker::Lld => {
-                cmd = "lld";
-                args.extend_from_slice(&[&format!("-o{}", out), obj]);
-            }
-        };
-
-        (cmd, args)
+    let (obj, out) = (obj.to_str().unwrap(), out.to_str().unwrap());
+    let (cmd, args) = match linker {
+        Linker::Ld => {
+            ("ld", [&format!("-o{}", out), "--entry=main", obj])
+        }
+        Linker::Link => {
+            ("Link", [&format!("/OUT:{}", out), "/ENTRY:main", obj])
+        }
+        Linker::Lld => {
+            ("lld", [&format!("-o{}", out), "--entry=main", obj])
+        }
     };
 
     match std::process::Command::new(cmd).args(args).spawn() {
