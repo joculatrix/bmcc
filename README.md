@@ -9,6 +9,13 @@ print the 10th fibonacci number:
 Aside from fixing the incorrect artifact symbol, `hello_world.bm` also doesn't work yet due to another error
 with string handling. Both problems are next on my list to fix.
 
+> [!IMPORTANT]
+> Building the compiler from source requires an installation of LLVM v18, as LLVM's API headers are called
+> externally.
+>
+> Running the compiler also requires Clang, GCC, or MSVC. This implementation of B-Minor's `print` keyword
+> relies on the C library, as well as a C compiler toolchain to link it.
+
 If you're unfamiliar with Rust and want to build/run the project (after installing Rust and Cargo via Rustup):
 ```
 cargo run -- examples/hello_world.bm
@@ -16,10 +23,6 @@ cargo run -- examples/hello_world.bm
 Currently, running `hello_world` will cause an error during code generation. Feel free to output the AST instead 
 (see the program's `--help` output), or try another example, including those in the `should_error` folder to view
 compiler diagnostics.
-
-> [!IMPORTANT]
-> Building the compiler from source requires an installation of LLVM v18, as LLVM's API headers are called
-> externally.
 
 If you want to build the documentation:
 ```
