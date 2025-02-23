@@ -54,9 +54,9 @@ impl<'a> TypecheckVisitor<'a> {
         }
     }
 
-    fn visit_decl_var(&mut self, v: &decl::Var<'a>) {
-        if let Some(right) = &v.rhs {
-            let Some(right) = self.visit_expr(&right) else {
+    fn visit_decl_var(&mut self, v: &mut decl::Var<'a>) {
+        if let Some(ref mut right) = &mut v.rhs {
+            let Some(right) = self.visit_expr(right) else {
                 return;
             };
             
@@ -113,7 +113,7 @@ impl<'a> TypecheckVisitor<'a> {
         }
     }
 
-    fn visit_expr(&mut self, expr: &Expr<'a>) -> Option<Type<'a>> {
+    fn visit_expr(&mut self, expr: &mut Expr<'a>) -> Option<Type<'a>> {
         match expr {
             Expr::Ident(expr) => {
                 if let Some(symbol) = &expr.symbol {
@@ -133,6 +133,8 @@ impl<'a> TypecheckVisitor<'a> {
             Expr::Index(expr) => self.visit_expr_index(expr),
             Expr::Binary(expr) => self.visit_expr_binary(expr),
             Expr::Inc(e, span) | Expr::Dec(e, span) | Expr::Neg(e, span) => {
+                let span = *span;
+
                 if let Some(r#type) = self.visit_expr(e) {
                     if !r#type.is_int() {
                         self.errs.push(TypecheckErr::ExpectedInt {
@@ -140,7 +142,7 @@ impl<'a> TypecheckVisitor<'a> {
                                 .expect("unary expr should have verb"),
                             found: r#type,
                         });
-                        Some(Type::Atomic(Atomic::Integer, *span))
+                        Some(Type::Atomic(Atomic::Integer, span))
                     } else {
                         Some(r#type)
                     }
@@ -149,6 +151,8 @@ impl<'a> TypecheckVisitor<'a> {
                 }
             }
             Expr::Not(e, span) => {
+                let span = *span;
+
                 if let Some(r#type) = self.visit_expr(e) {
                     if !r#type.is_bool() {
                         self.errs.push(TypecheckErr::ExpectedBool {
@@ -156,7 +160,7 @@ impl<'a> TypecheckVisitor<'a> {
                                 .expect("unary expr should have verb"),
                             found: r#type,
                         });
-                        Some(Type::Atomic(Atomic::Boolean, *span))
+                        Some(Type::Atomic(Atomic::Boolean, span))
                     } else {
                         Some(r#type)
                     }
@@ -165,12 +169,12 @@ impl<'a> TypecheckVisitor<'a> {
                 }
             }
             Expr::Call(expr) => self.visit_expr_call(expr),
-            Expr::Array(exprs, span) => {
-                let Some(first_type) = self.visit_expr(&exprs[0]) else {
+            Expr::Array(exprs, ref mut a_type, span) => {
+                let Some(first_type) = self.visit_expr(&mut exprs[0]) else {
                     return None;
                 };
                 for i in 1..exprs.len() {
-                    let Some(r#type) = self.visit_expr(&exprs[i]) else {
+                    let Some(r#type) = self.visit_expr(&mut exprs[i]) else {
                         return None;
                     };
                     if r#type != first_type {
@@ -182,21 +186,24 @@ impl<'a> TypecheckVisitor<'a> {
                         );
                     }
                 }
-                Some(Type::Array(r#type::ArrayType {
+
+                *a_type = Some(Type::Array(r#type::ArrayType {
                     r#type: Box::new(first_type),
                     size: r#type::ArraySize::Known(exprs.len()),
                     span: *span, 
-                }))
+                }));
+
+                a_type.clone()
             }
         }
     }
 
     fn visit_expr_binary(
         &mut self,
-        expr: &expr::BinaryExpr<'a>,
+        expr: &mut expr::BinaryExpr<'a>,
     ) -> Option<Type<'a>> {
-        let left = self.visit_expr(&expr.left);
-        let right = self.visit_expr(&expr.right);
+        let left = self.visit_expr(&mut expr.left);
+        let right = self.visit_expr(&mut expr.right);
         
         let (Some(left), Some(right)) = (left, right) else {
             return None;
@@ -217,13 +224,13 @@ impl<'a> TypecheckVisitor<'a> {
                 if left != right {
                     self.errs.push(
                         TypecheckErr::AssignMismatch {
-                            left,
+                            left: left.clone(),
                             right,
                         }
                     );
                 }
 
-                return None;
+                return Some(left);
             }
             // expressions that expect and int and return an int
             expr::BinaryExprKind::Add
@@ -320,7 +327,7 @@ impl<'a> TypecheckVisitor<'a> {
 
     fn visit_expr_call(
         &mut self,
-        expr: &expr::CallExpr<'a>,
+        expr: &mut expr::CallExpr<'a>,
     ) -> Option<Type<'a>> {
         let Some(ref symbol) = expr.symbol else {
             return None
@@ -342,8 +349,8 @@ impl<'a> TypecheckVisitor<'a> {
             );
         }
 
-        for (arg, param) in expr.args.iter().zip(f_type.params.iter()) {
-            if let Some(arg_type) = self.visit_expr(arg) {
+        for (mut arg, param) in expr.args.iter_mut().zip(f_type.params.iter()) {
+            if let Some(arg_type) = self.visit_expr(&mut arg) {
                 if arg_type != param.r#type {
                     self.errs.push(
                         TypecheckErr::WrongTypeArg {
@@ -370,10 +377,10 @@ impl<'a> TypecheckVisitor<'a> {
 
     fn visit_expr_index(
         &mut self,
-        expr: &expr::IndexExpr<'a>,
+        expr: &mut expr::IndexExpr<'a>,
     ) -> Option<Type<'a>> {
-        let array = self.visit_expr(&expr.array);
-        let index = self.visit_expr(&expr.index);
+        let array = self.visit_expr(&mut expr.array);
+        let index = self.visit_expr(&mut expr.index);
 
         // if either type is None, it means an error happened elsewhere;
         // we'll ignore it for typechecking knowing the compiler will
@@ -395,7 +402,7 @@ impl<'a> TypecheckVisitor<'a> {
             );
         }
 
-        match *array.r#type {
+        expr.r#type =  match *array.r#type {
             Type::Atomic(a, _) => Some(Type::Atomic(a, expr.span)),
             Type::Array(a) => Some(Type::Array(r#type::ArrayType {
                 span: expr.span,
@@ -403,7 +410,9 @@ impl<'a> TypecheckVisitor<'a> {
             })),
             // arrays of functions are forbidden and caught by the parser:
             Type::Function(_) => panic!(),
-        }
+        };
+
+        expr.r#type.clone()
     }
 
     fn visit_stmt(&mut self, stmt: &mut Stmt<'a>) {
@@ -412,7 +421,7 @@ impl<'a> TypecheckVisitor<'a> {
                 self.visit_stmt(stmt);
             },
             Stmt::Decl(ref mut decl, _) => self.visit_decl(decl),
-            Stmt::Expr(ref expr, _) => { self.visit_expr(expr); }
+            Stmt::Expr(ref mut expr, _) => { self.visit_expr(expr); }
             Stmt::Print(exprs, span) => {
                 for expr in exprs {
                     if let Some(
@@ -428,8 +437,8 @@ impl<'a> TypecheckVisitor<'a> {
                     }
                 }
             }
-            Stmt::Return(ref expr, span) => {
-                if let Some(expr) = expr {
+            Stmt::Return(ref mut expr, span) => {
+                if let Some(ref mut expr) = expr {
                     let r#type = self.visit_expr(expr);
                     if let Some(r#type) = r#type {
                         let expected = self.curr_return_type.clone().unwrap();
@@ -457,20 +466,20 @@ impl<'a> TypecheckVisitor<'a> {
                 }
             }
             Stmt::If(if_stmt) => {
-                self.visit_expr(&if_stmt.condition);
+                self.visit_expr(&mut if_stmt.condition);
                 self.visit_stmt(&mut *if_stmt.body);
                 if let Some(else_body) = &mut if_stmt.else_body {
                     self.visit_stmt(&mut *else_body);
                 }
             }
             Stmt::For(for_stmt) => {
-                self.visit_expr(&for_stmt.init_expr);
-                self.visit_expr(&for_stmt.condition);
-                self.visit_expr(&for_stmt.next_expr);
+                self.visit_expr(&mut for_stmt.init_expr);
+                self.visit_expr(&mut for_stmt.condition);
+                self.visit_expr(&mut for_stmt.next_expr);
                 self.visit_stmt(&mut *for_stmt.body);
             }
             Stmt::While(while_stmt) => {
-                self.visit_expr(&while_stmt.condition);
+                self.visit_expr(&mut while_stmt.condition);
                 self.visit_stmt(&mut *while_stmt.body);
             }
         }
