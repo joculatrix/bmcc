@@ -154,7 +154,7 @@ fn try_linker(
         Ok(mut process) => {
             let exit = process.wait()?;
             // clean up object file
-            // std::fs::remove_file(obj)?;
+            std::fs::remove_file(obj)?;
             Ok(exit.success())
         }
         Err(e) => match e.kind() {
