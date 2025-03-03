@@ -1,4 +1,4 @@
 main: function integer () = {
-	print "hello world!\n";
+	print "Hello, world!\n";
 	return 0;
 }

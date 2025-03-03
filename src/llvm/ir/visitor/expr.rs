@@ -34,8 +34,8 @@ impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
             }
             Expr::StrLit(val, ..) => {
                 Ok(
-                    self.context
-                        .const_string(val.as_bytes(), false)
+                    self.builder
+                        .build_global_string_ptr(val, "str_lit")?
                         .as_basic_value_enum()
                 )
             }

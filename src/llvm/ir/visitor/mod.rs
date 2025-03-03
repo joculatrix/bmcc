@@ -1,6 +1,5 @@
 use super::*;
 
-use inkwell::values::BasicValue;
 use inkwell::IntPredicate;
 use inkwell::{
     builder::{ Builder, BuilderError },
@@ -8,6 +7,8 @@ use inkwell::{
     module::Module,
     types::{ BasicMetadataTypeEnum, BasicType },
     values::{
+        ArrayValue,
+        BasicValue,
         BasicValueEnum,
         FunctionValue,
         IntValue,
