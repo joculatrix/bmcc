@@ -3,7 +3,7 @@
 fib: function integer (n: integer);
 
 main: function integer () = {
-    print fib(10);
+    print fib(10), '\n';
     return 0;
 }
 

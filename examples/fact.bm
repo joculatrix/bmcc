@@ -11,6 +11,6 @@ fact: function integer ( n: integer ) = {
 }
 
 main: function integer () = {
-	print fact(10);
+	print fact(10), '\n';
 	return 0;
 }
