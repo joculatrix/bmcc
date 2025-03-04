@@ -35,12 +35,7 @@ pub fn codegen(ast: &Vec<Decl<'_>>, config: EmitConfig) -> Result<(), Box<dyn Er
                 err,
             );
         });
-        eprintln!(
-            "{} compilation failed due to {} error(s)",
-            <String as yansi::Paint>::red(&String::from("ERROR:")).bold(),
-            num_errs,
-        );
-        std::process::exit(1);
+        super::exit_from_errs(num_errs);
     }
 
     emit(config, &machine, &module)?;

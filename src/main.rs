@@ -73,11 +73,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         return Err("failed to read file".into())
     };
     
-    eprintln!(
-        "{:>9} {:#?}",
-        <String as yansi::Paint>::blue(&String::from("Compiling")).bold(),
-        &args.src,
-    );
+    print_status("Compiling", format!("{:#?}", &args.src));
 
     let tokens = lex()
         .parse(&src)
@@ -85,12 +81,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .unwrap_or_else(|errs| {
             let num_errs = errs.len();
             error::parser_errs(errs, &args.src, &src);
-            eprintln!(
-                "{:>9} compilation failed due to {} error(s)",
-                <String as yansi::Paint>::red(&String::from("Error")).bold(),
-                num_errs,
-            );
-            std::process::exit(1);
+            exit_from_errs(num_errs);
         });
 
     let mut ast = parser()
@@ -101,13 +92,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         .into_result()
         .unwrap_or_else(|errs| {
             let num_errs = errs.len();
-            eprintln!(
-                "{:>9} compilation failed due to {} error(s)",
-                <String as yansi::Paint>::red(&String::from("Error")).bold(),
-                num_errs,
-            );
             error::parser_errs(errs, &args.src, &src);
-            std::process::exit(1);
+            exit_from_errs(num_errs);
         });
 
     let name_res = symbol::NameResVisitor::new();
@@ -115,16 +101,15 @@ fn main() -> Result<(), Box<dyn Error>> {
     if errs.len() != 0 {
         let num_errs = errs.len();
         error::name_res_errs(errs, &args.src, &src);
-        eprintln!(
-            "{:>9} compilation failed due to {} error(s)",
-            <String as yansi::Paint>::red(&String::from("Error")).bold(),
-            num_errs,
-        );
-        std::process::exit(1);
+        exit_from_errs(num_errs);
     }
 
     if matches!(args.emit, Emit::Ast) {
         println!("{:#?}", ast);
+        
+        let elapsed = start_time.elapsed();
+        print_status("Finished", format!("in {:.2?}", elapsed));
+        
         return Ok(());
     }
 
@@ -133,12 +118,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     if errs.len() != 0 {
         let num_errs = errs.len();
         error::typecheck_errs(errs, &args.src, &src);
-        eprintln!(
-            "{:>9} compilation failed due to {} error(s)",
-            <String as yansi::Paint>::red(&String::from("Error")).bold(),
-            num_errs,
-        );
-        std::process::exit(1);
+        exit_from_errs(num_errs);
     }
 
     let cf_visitor = analysis::ControlFlowVisitor::new();
@@ -149,12 +129,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     if errs.len() != 0 {
         let num_errs = errs.len();
         error::control_flow_errs(errs, &args.src, &src);
-        eprintln!(
-            "{:>9} compilation failed due to {} error(s)",
-            <String as yansi::Paint>::red(&String::from("Error")).bold(),
-            num_errs,
-        );
-        std::process::exit(1);
+        exit_from_errs(num_errs);
     }
 
     codegen::codegen(
@@ -168,13 +143,31 @@ fn main() -> Result<(), Box<dyn Error>> {
     )?;
 
     let elapsed = start_time.elapsed();
-
-    eprintln!(
-        "{:>9} in {:.2?}",
-        <String as yansi::Paint>::blue(&String::from("Finished")).bold(),
-        elapsed,
-    );
+    print_status("Finished", format!("in {:.2?}", elapsed));
 
     Ok(())
 }
 
+// Amount of columns the left-hand label prefix on a compiler message should fill.
+// Set to the length of the longest status message - `COMPILING`
+const PFX_WIDTH: usize = 9;
+
+/// Prints a failure message along with the number of compiler errors, then
+/// exits with return code 1.
+fn exit_from_errs(num_errs: usize) -> ! {
+    eprintln!(
+        "{:>PFX_WIDTH$} compilation failed due to {} error(s)",
+        <String as yansi::Paint>::red(&String::from("Error")).bold(),
+        num_errs,
+    );
+    std::process::exit(1);
+}
+
+/// Prints a compiler message with a blue status label to the left.
+fn print_status(status: &str, msg: String) {
+    eprintln!(
+        "{:>PFX_WIDTH$} {}",
+        <String as yansi::Paint>::blue(&String::from(status)).bold(),
+        msg,
+    );
+}
