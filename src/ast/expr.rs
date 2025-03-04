@@ -17,7 +17,7 @@ pub enum Expr<'src> {
 	/// A 64-bit integer literal.
 	IntLit(i64, SimpleSpan),
 	/// A string literal. In B-Minor, strings are immutable.
-	StrLit(&'src str, SimpleSpan),
+	StrLit(String, SimpleSpan),
 	/// An indexed array access.
 	Index(IndexExpr<'src>),
 

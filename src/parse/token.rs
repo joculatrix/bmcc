@@ -19,7 +19,7 @@ pub enum Token<'src> {
     /// 64-bit int literal
     LitInt(i64),
     /// immutable string value
-    LitString(&'src str),
+    LitString(String),
     /// keywords
     Keyword(Keyword),
     /// operators

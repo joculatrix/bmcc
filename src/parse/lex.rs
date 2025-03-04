@@ -30,8 +30,8 @@ pub fn lex<'src>()
             c
         })
         .repeated()
-        .to_slice()
-        .validate(|s: &str, e, emitter| {
+        .collect::<std::string::String>()
+        .validate(|s: std::string::String, e, emitter| {
             if s.len() == 0 {
                 emitter.emit(Rich::custom(
                     e.span(),
