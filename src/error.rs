@@ -59,7 +59,7 @@ pub fn name_res_errs<'src>(
 ) {
     let idx = LineIndex::new(&src);
     for err in errs {
-        build_name_res_err(err, path, &idx)
+        build_name_res_err(err, path, &idx, src.len())
             .print();
     }
 }
@@ -75,7 +75,8 @@ pub fn name_res_errs<'src>(
 fn build_name_res_err<'src>(
     err: NameResErr<'_>,
     path: &PathBuf,
-    idx: &'src LineIndex<'src>
+    idx: &'src LineIndex<'src>,
+    src_len: usize,
 ) -> CompilerErr<'src> {
     match err {
         NameResErr::AlreadyExists { symbol, span } => {
@@ -178,7 +179,16 @@ fn build_name_res_err<'src>(
                 "ERROR:".red().bold(),
             );
 
-            let block = Block::new(&idx, [Label::new(0..0)]).unwrap()
+            let block = 
+                Block::new(
+                    &idx,
+                    [
+                        Label::new(src_len - 1..src_len - 1)
+                            .with_text(String::from("EOF reached here without `main()`"))
+                            .with_style(|s| s.red().to_string()),
+                    ],
+                )
+                .unwrap()
                 .map_code(|c| CodeWidth::new(c, c.len()));
 
             CompilerErr { msg, block }
