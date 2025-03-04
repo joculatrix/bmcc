@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 #![warn(rust_2024_compatibility)]
 
 use std::{error::Error, time::Instant};
