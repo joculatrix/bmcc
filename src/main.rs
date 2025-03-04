@@ -68,13 +68,22 @@ fn main() -> Result<(), Box<dyn Error>> {
         use clap::Parser;
         Args::parse()
     };
+    
+    print_status("Compiling", format!("{:#?}", &args.src));
 
+    driver(args)?;
+
+    let elapsed = start_time.elapsed();
+    print_status("Finished", format!("in {:.2?}", elapsed));
+
+    Ok(())
+}
+
+fn driver(args: Args) -> Result<(), Box<dyn Error>> {
     let Ok(src) = std::fs::read_to_string(args.src.clone()) else {
         return Err("failed to read file".into())
     };
     
-    print_status("Compiling", format!("{:#?}", &args.src));
-
     let tokens = lex()
         .parse(&src)
         .into_result()
@@ -106,10 +115,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     if matches!(args.emit, Emit::Ast) {
         println!("{:#?}", ast);
-        
-        let elapsed = start_time.elapsed();
-        print_status("Finished", format!("in {:.2?}", elapsed));
-        
         return Ok(());
     }
 
@@ -141,9 +146,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             linker: args.linker,
         }
     )?;
-
-    let elapsed = start_time.elapsed();
-    print_status("Finished", format!("in {:.2?}", elapsed));
 
     Ok(())
 }
