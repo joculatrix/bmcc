@@ -116,37 +116,39 @@ where
         )
 }
 
-/// EXPR    ::= ASSIGN
-///         |   LOGIC
-///         |   ARRAY
+/// EXPR        ::= ASSIGN
+///             |   LOGIC
+///             |   ARRAY
 ///
-/// ASSIGN  ::= [IDENT|INDEX] `=` EXPR
+/// ASSIGN      ::= [IDENT|INDEX] `=` EXPR
 ///
-/// ARRAY   ::= `{` EXPR (`,` EXPR)* `}`
+/// ARRAY       ::= `{` EXPR (`,` EXPR)* `}`
 ///
-/// LOGIC   ::= CMP [`&&`|`||`] CMP
-///         |   CMP
+/// LOGIC       ::= CMP [`&&`|`||`] CMP
+///             |   CMP
 ///
-/// CMP     ::= SUM [`==`|`!=`|`<`|`<=`|`>`|`>=`] SUM
-///         |   SUM
+/// CMP         ::= SUM [`==`|`!=`|`<`|`<=`|`>`|`>=`] SUM
+///             |   SUM
 ///
-/// SUM     ::= PRODUCT [`+`|`-`] PRODUCT
-///         |   PRODUCT
+/// SUM         ::= PRODUCT [`+`|`-`] PRODUCT
+///             |   PRODUCT
 ///
-/// PRODUCT ::= INDEX [`*`|`/`|`^`|`%`] INDEX
-///         |   INDEX
+/// PRODUCT     ::= MAYBE_INDEX [`*`|`/`|`^`|`%`] MAYBE_INDEX
+///             |   MAYBE_INDEX
 ///
-/// FACTOR  ::= `-` FACTOR
-///         |   `!` FACTOR
-///         |   `(` EXPR `)`
-///         |   CALL
-///         |   IDENT
-///         |   LIT
+/// FACTOR      ::= `-` FACTOR
+///             |   `!` FACTOR
+///             |   `(` EXPR `)`
+///             |   CALL
+///             |   IDENT
+///             |   LIT
 ///
-/// CALL    ::= IDENT `(` (EXPR (`,` EXPR)*)? `)`
+/// CALL        ::= IDENT `(` (EXPR (`,` EXPR)*)? `)`
 ///
-/// INDEX   ::= FACTOR `[` EXPR `]`
-///         |   FACTOR
+/// INDEX       ::= FACTOR `[` EXPR `]`
+/// 
+/// MAYBE_INDEX ::= INDEX
+///             |   FACTOR
 fn expr<'src, I>()
 -> impl Parser<'src, I, Expr<'src>, Err<Rich<'src, Token<'src>>>> 
     + Clone
@@ -245,8 +247,7 @@ where
         );
         
         // INDEX ::= FACTOR `[` EXPR `]`
-        //       |   FACTOR
-        let index = choice((
+        let index =
             factor.clone()
                 .then(
                     expr.clone()
@@ -262,21 +263,21 @@ where
                         span: extra.span(),
                         r#type: None,
                     })
-                )),
-            factor.clone(),
-        ));
+                ));
 
-        // PRODUCT ::= INDEX [`*`|`/`|`^`|`%`] INDEX
-        //         |   INDEX
+        let maybe_index = choice((index.clone(), factor.clone()));
+
+        // PRODUCT ::= MAYBE_INDEX [`*`|`/`|`^`|`%`] MAYBE_INDEX
+        //         |   MAYBE_INDEX
         let product =
-            index.clone().foldl_with(
+            maybe_index.clone().foldl_with(
                 choice((
                     just(Token::Operator(Op::Mul)).to(BinaryExprKind::Mul),
                     just(Token::Operator(Op::Div)).to(BinaryExprKind::Div),
                     just(Token::Operator(Op::Exp)).to(BinaryExprKind::Exp),
                     just(Token::Operator(Op::Mod)).to(BinaryExprKind::Mod),
                 ))
-                .then(index.clone())
+                .then(maybe_index.clone())
                 .repeated(),
                 |left, (kind, right), extra| Box::new(
                     Expr::Binary(expr::BinaryExpr {
