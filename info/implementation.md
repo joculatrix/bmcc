@@ -51,10 +51,12 @@ my friends can play with on different platforms to see the project I worked on.
 
 Thain's book, as far as I can tell, or at least the edition I read, didn't offer
 any guidance on how to actually implement the print statements B-Minor's specification
-requires. Because of my cross-platform goals (see the Backend section) and the
-complexity of printing, I opted to rely on the user having an existing installation
-of a C compiler toolchain in order to link the binary with the C library, allowing
-B-Minor's backend to simply call libc's `printf()` externally.
+requires. (It briefly discusses implementing a "runtime library" with separate functions
+for different types, but still doesn't broach actually getting the things to print.)
+Because of my cross-platform goals (see the Backend section) and the complexity of printing,
+I opted to rely on the user having an existing installation of a C compiler toolchain in
+order to link the binary with the C library, allowing B-Minor's backend to simply call libc's
+`printf()` externally.
 
 ## Visitors
 
