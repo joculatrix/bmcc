@@ -157,7 +157,7 @@ const PFX_WIDTH: usize = 9;
 fn exit_from_errs(num_errs: usize) -> ! {
     eprintln!(
         "{:>PFX_WIDTH$} compilation failed due to {} error(s)",
-        <String as yansi::Paint>::red(&String::from("Error")).bold(),
+        <String as yansi::Paint>::red(&String::from("Failed")).bold(),
         num_errs,
     );
     std::process::exit(1);
