@@ -1,13 +1,14 @@
-A work-in-progress to re-implement my [B-Minor Compiler](https://github.com/joculatrix/bminor) in Rust.
+A re-implementation of my [B-Minor Compiler](https://github.com/joculatrix/bminor) in Rust.
 
-Currently, code generation is partially working (at least using GCC - I'd appreciate feedback on output using
-Clang or LLVM as linkers). Here is the output on my machine of compiling and running the `fib.bm` example to
-print the 10th fibonacci number:
+Currently, code generation works on my machine using GCC as a linker - I'd love to hear from anyone who
+tests on Windows or with Clang as a linker. Here is example output of compiling and running the
+`hello_world.bm` example:
 
-![image](https://github.com/user-attachments/assets/57e6f627-df2e-4ebd-b2e9-d1060f4ea06c)
+![image](https://github.com/user-attachments/assets/5ac6f738-0086-4331-9216-d895aa634e47)
 
-Aside from fixing the incorrect artifact symbol, `hello_world.bm` also doesn't work yet due to another error
-with string handling. Both problems are next on my list to fix.
+Similarly, here's compiler diagnostic output from one of the examples intended to produce errors:
+
+![image](https://github.com/user-attachments/assets/50f12360-d488-4ff9-90d1-b9a9202d61c0)
 
 > [!IMPORTANT]
 > Building the compiler from source requires an installation of LLVM v18, as LLVM's API headers are called
@@ -20,9 +21,6 @@ If you're unfamiliar with Rust and want to build/run the project (after installi
 ```
 cargo run -- examples/hello_world.bm
 ```
-Currently, running `hello_world` will cause an error during code generation. Feel free to output the AST instead 
-(see the program's `--help` output), or try another example, including those in the `should_error` folder to view
-compiler diagnostics.
 
 If you want to build the documentation:
 ```
