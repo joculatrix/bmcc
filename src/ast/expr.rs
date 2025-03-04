@@ -41,6 +41,11 @@ pub enum Expr<'src> {
 }
 
 impl<'a> Expr<'a> {
+    /// Convenience function to produce an appropriate verb for different
+    /// operations, largely for typechecking errors (e.g. `cannot assign int to array`).
+    ///
+    /// Returns `None` for atomic expressions like `Ident` that don't represent
+    /// operations.
     pub fn to_verb(&self) -> Option<&'static str> {
         match self {
             Expr::Ident(..) => None,
@@ -75,6 +80,10 @@ impl<'a> Expr<'a> {
         }
     }
 
+    /// Convenience function for typechecking to return the [`Type`] an expression
+    /// should evaluate to. In many cases this is assumed (e.g. arithemetic expressions
+    /// are type [`Atomic::Integer`]) rather than the actual product of typechecking
+    /// the expression.
     pub fn get_type(&self) -> Option<Type<'a>> {
         match self {
             Expr::Ident(IdentExpr { symbol, .. }) => match symbol {

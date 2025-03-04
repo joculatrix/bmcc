@@ -1,3 +1,7 @@
+//! Module for generating and emitting code translated from the input source.
+//!
+//! Binary linking relies on existing C compiler toolchains (Clang, GCC, MSVC)
+//! due to the use of the C library's `printf()` function for print statements.
 use crate::llvm;
 use std::{error::Error, fs::File, io::Write, path::PathBuf};
 use inkwell::{context::Context, module::Module, targets::{FileType, TargetMachine}};
@@ -7,6 +11,8 @@ use crate::{
     Emit, Linker,
 };
 
+/// Holds codegen-related information from command-line arguments; mostly used
+/// to consolidate parameters passed into [`codegen()`].
 pub struct EmitConfig {
     pub emit: Emit,
     pub output: Option<PathBuf>,
@@ -14,6 +20,11 @@ pub struct EmitConfig {
     pub linker: Option<Linker>,
 }
 
+/// Generates code using an [`LlvmGenVisitor`], then emits the constructed
+/// module in the appropriate form based on the [`EmitConfig`]. Returns errors
+/// if either LLVM or [`emit()`] fail.
+///
+/// [`LlvmGenVisitor`]: llvm::LlvmGenVisitor
 pub fn codegen(ast: &Vec<Decl<'_>>, config: EmitConfig) -> Result<(), Box<dyn Error>> {
     let ctxt = Context::create();
     let module = ctxt.create_module("bminor");
@@ -43,8 +54,8 @@ pub fn codegen(ast: &Vec<Decl<'_>>, config: EmitConfig) -> Result<(), Box<dyn Er
     Ok(())
 }
 
-/// Output the module in the requested format, including linking if outputting
-/// an executable.
+/// Output the module in the requested format based on the [`EmitConfig`],
+/// including linking if outputting an executable (see [`link()`]).
 fn emit(
     config: EmitConfig,
     machine: &TargetMachine,
@@ -80,14 +91,14 @@ fn emit(
             let mut file = open_file(&path)?;
             file.write_all(module.to_string().as_bytes())?;
         }
-        Emit::Ast => unreachable!(),
+        Emit::Ast => unreachable!("should have halted after name resolution"),
     }
     Ok(())
 }
 
 /// Attempt to link the binary.
 ///
-/// If a linker was specified by the user, try the linker and halt if unsuccessful.
+/// If a [`Linker`] was specified by the user, try the linker and halt if unsuccessful.
 /// Otherwise, try known linkers until one works.
 fn link(
     linker: Option<Linker>,
@@ -115,7 +126,7 @@ fn link(
     }
 }
 
-/// Try invoking a linker to link the binary.
+/// Try invoking a [`Linker`] to link the binary.
 ///
 /// Returns `Ok(true)` if the linker was invoked successfully, `Ok(false)` if the
 /// linker wasn't found, or an `Err` if some other error prevented spawning a
@@ -159,6 +170,10 @@ fn try_linker(
     }
 }
 
+/// Opens a file, creating other directories in the path if necessary.
+///
+/// Returns errors if creating directories fails, or if the path exists but
+/// refers to something that isn't a file.
 fn open_file(path: &PathBuf) -> Result<File, Box<dyn Error>> {
     if path.exists() && !path.is_file() {
         return Err("output path isn't a file name".into());
@@ -171,6 +186,9 @@ fn open_file(path: &PathBuf) -> Result<File, Box<dyn Error>> {
     Ok(File::create(&path)?)
 }
 
+/// Returns the [`PathBuf`] contained in `path` if `Some`, or creates a PathBuf
+/// from `default` and returns it. Returns an error if the path supplied exists
+/// and isn't a file.
 fn get_output_path(
     path: Option<PathBuf>, 
     default: &str

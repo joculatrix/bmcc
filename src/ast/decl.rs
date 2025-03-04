@@ -9,6 +9,12 @@ pub enum Decl<'src> {
 }
 
 #[derive(Clone, Debug)]
+/// A variable declaration, including its name, [`Type`], an optional initializer
+/// [`Expr`], and a span of its location in the source code.
+///
+/// The [`NameResVisitor`] sets the `symbol` field.
+///
+/// [`NameResVisitor`]: crate::symbol::NameResVisitor
 pub struct Var<'src> {
 	pub name: &'src str,
 	pub r#type: Box<Type<'src>>,
@@ -18,6 +24,13 @@ pub struct Var<'src> {
 }
 
 #[derive(Clone, Debug)]
+/// A function declaration, including its name, [`Type`], a body [`Stmt`] if it
+/// isn't a prototype/forward declaration, and a span of its location in the
+/// source code.
+///
+/// The [`NameResVisitor`] sets the `symbol` field.
+///
+/// [`NameResVisitor`]: crate::symbol::NameResVisitor
 pub struct Function<'src> {
 	pub name: &'src str,
 	pub r#type: Box<Type<'src>>,

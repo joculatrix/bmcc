@@ -18,16 +18,21 @@ impl<'src> Type<'src> {
         }
     }
 
+    /// Convenience function for differentiating booleans from integers when
+    /// working with LLVM (where both are represented as integer types).
     pub fn is_bool(&self) -> bool {
         matches!(self, Type::Atomic(Atomic::Boolean, ..))
     }
 
+    /// Convenience function for differentiating booleans from integers when
+    /// working with LLVM (where both are represented as integer types).
     pub fn is_int(&self) -> bool {
         matches!(self, Type::Atomic(Atomic::Integer, ..))
     }
 }
 
 impl<'src> Display for Type<'src> {
+    /// Prints the name of a type, recursively if necessary.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Type::Atomic(atomic, ..) =>  match atomic {
@@ -77,6 +82,8 @@ impl<'src> PartialEq for Type<'src> {
 }
 
 #[derive(Clone, Debug)]
+/// Differentiates between arrays the compiler knows the size of and those it
+/// doesn't. Function parameters, for example, are often unsized arrays.
 pub enum ArraySize {
     Known(usize),
     Unknown,
@@ -97,6 +104,9 @@ pub struct FunctionType<'src> {
 }
 
 #[derive(Clone, Debug)]
+/// Represents a function parameter. The `symbol` is added by the [`NameResVisitor`].
+///
+/// [`NameResVisitor`]: crate::symbol::NameResVisitor
 pub struct Param<'src> {
     pub ident: &'src str,
     pub r#type: Type<'src>,

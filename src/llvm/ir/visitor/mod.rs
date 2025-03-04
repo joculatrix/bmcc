@@ -7,7 +7,6 @@ use inkwell::{
     module::Module,
     types::{ BasicMetadataTypeEnum, BasicType },
     values::{
-        ArrayValue,
         BasicValue,
         BasicValueEnum,
         FunctionValue,
@@ -21,6 +20,7 @@ mod decl;
 mod expr;
 mod stmt;
 
+/// Type for traversing the B-Minor program AST to produce LLVM IR code.
 pub struct LlvmGenVisitor<'a, 'ctx> {
     alloca_store: AllocaStore<'ctx>,
     context: &'ctx Context,
@@ -67,6 +67,7 @@ impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
         errs
     }
 
+    /// Generates a [`BasicTypeEnum`] value from a B-Minor AST [`Type`].
     fn generate_basic_type(
         &self,
         r#type: &Type<'_>,
