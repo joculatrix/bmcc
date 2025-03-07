@@ -60,6 +60,24 @@ enum Linker {
     Msvc,
 }
 
+/// Provides a `visit()` function with a consistent interface for types that
+/// traverse the AST. Does not allow mutation of the AST. To run passes that
+/// mutate the AST, use [`AstMutVisitor`].
+trait AstVisitor<'a, T, E> {
+    /// Visit the AST immutably, and consume the visitor. Return `Ok(())` if there
+    /// are no errors, or a list of errors.
+    fn visit(self, ast: &Vec<ast::Decl<'a>>) -> Result<T, Vec<E>>;
+}
+
+/// Provides a `visit()` function with a consistent interface for types that
+/// traverse the AST. Allows mutation of the AST; use [`AstVisitor`] if the AST
+/// shouldn't be mutated.
+trait AstMutVisitor<'a, T, E> {
+    /// Visit the AST mutably, and consume the visitor. Return `Ok(())` if there
+    /// are no errors, or a list of errors.
+    fn visit(self, ast: &mut Vec<ast::Decl<'a>>) -> Result<T, Vec<E>>;
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let start_time = Instant::now();
 
@@ -104,36 +122,37 @@ fn driver(args: Args) -> Result<(), Box<dyn Error>> {
             exit_from_errs(num_errs);
         });
 
-    let name_res = symbol::NameResVisitor::new();
-    let errs = name_res.resolve(&mut ast);
-    if errs.len() != 0 {
-        let num_errs = errs.len();
-        error::name_res_errs(errs, &args.src, &src);
-        exit_from_errs(num_errs);
-    }
+    symbol::NameResVisitor::new()
+        .visit(&mut ast)
+        .unwrap_or_else(|errs| {
+            let num_errs = errs.len();
+            error::name_res_errs(errs, &args.src, &src);
+            exit_from_errs(num_errs);
+        });
 
     if matches!(args.emit, Emit::Ast) {
         println!("{:#?}", ast);
         return Ok(());
     }
 
-    let type_checker = analysis::TypecheckVisitor::new();
-    let errs = type_checker.resolve(&mut ast);
-    if errs.len() != 0 {
-        let num_errs = errs.len();
-        error::typecheck_errs(errs, &args.src, &src);
-        exit_from_errs(num_errs);
-    }
+    analysis::TypecheckVisitor::new()
+        .visit(&mut ast)
+        .unwrap_or_else(|errs| {
+            let num_errs = errs.len();
+            error::typecheck_errs(errs, &args.src, &src);
+            exit_from_errs(num_errs);
+        });
 
-    let cf_visitor = analysis::ControlFlowVisitor::new();
-    let (unreachable, errs) = cf_visitor.resolve(&ast);
-    if unreachable.len() != 0 {
-        error::warn_unreachable(unreachable, &args.src, &src);
-    }
-    if errs.len() != 0 {
-        let num_errs = errs.len();
-        error::control_flow_errs(errs, &args.src, &src);
-        exit_from_errs(num_errs);
+    match analysis::ControlFlowVisitor::new().visit(&ast) {
+        Ok(dead) if !dead.is_empty() => {
+            error::warn_unreachable(dead, &args.src, &src);
+        }
+        Ok(_) => (),
+        Err(errs) => {
+            let num_errs = errs.len();
+            error::control_flow_errs(errs, &args.src, &src);
+            exit_from_errs(num_errs);
+        }
     }
 
     codegen::codegen(

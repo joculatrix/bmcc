@@ -1,4 +1,6 @@
 use chumsky::span::SimpleSpan;
+use crate::AstMutVisitor;
+
 use super::*;
 
 /// Type for traversing the AST and checking that the types of expressions
@@ -20,21 +22,29 @@ pub struct TypecheckVisitor<'a> {
     curr_return_type: Option<Type<'a>>,
 }
 
+impl<'a> AstMutVisitor<'a, (), TypecheckErr<'a>> for TypecheckVisitor<'a> {
+    fn visit(
+        mut self,
+        ast: &mut Vec<Decl<'a>>,
+    ) -> Result<(), Vec<TypecheckErr<'a>>> {
+        for decl in ast {
+            self.visit_decl(decl);
+        }
+
+        if self.errs.is_empty() {
+            Ok(())
+        } else {
+            Err(self.errs)
+        }
+    }
+}
+
 impl<'a> TypecheckVisitor<'a> {
     pub fn new() -> TypecheckVisitor<'a> {
         TypecheckVisitor {
             errs: vec![],
             curr_return_type: None,
         }
-    }
-
-    /// Runs the typechecking traversal over the AST, returning any errors
-    /// generated, and consumes the `TypecheckVisitor` in the process.
-    pub fn resolve(mut self, ast: &mut Vec<Decl<'a>>) -> Vec<TypecheckErr<'a>> {
-        for decl in ast {
-            self.visit_decl(decl);
-        }
-        self.errs
     }
 
     fn visit_decl(&mut self, decl: &mut Decl<'a>) {

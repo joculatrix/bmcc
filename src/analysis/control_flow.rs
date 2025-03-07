@@ -8,6 +8,8 @@
 //! can be warned about.
 use chumsky::span::SimpleSpan;
 
+use crate::AstVisitor;
+
 use super::*;
 
 /// Type for verifying function return validity with regards to control flow.
@@ -15,6 +17,20 @@ pub struct ControlFlowVisitor<'a> {
     /// Spans of code that are dead/unreachable due to a preceding return.
     dead: Vec<SimpleSpan>,
     errs: Vec<ControlFlowErr<'a>>,
+}
+
+impl<'a> AstVisitor<'a, Vec<SimpleSpan>, ControlFlowErr<'a>> for ControlFlowVisitor<'a> {
+    fn visit(
+        self,
+        ast: &Vec<Decl<'a>>
+    ) -> Result<Vec<SimpleSpan>, Vec<ControlFlowErr<'a>>> {
+        let (dead, errs) = self.resolve(ast);
+        if errs.is_empty() {
+            Ok(dead)
+        } else {
+            Err(errs)
+        }
+    }
 }
 
 impl<'a> ControlFlowVisitor<'a> {
@@ -32,7 +48,7 @@ impl<'a> ControlFlowVisitor<'a> {
     /// containing a vector of [`chumsky::SimpleSpan`]s warning of any dead /
     /// unreachable code and a vector of [`ControlFlowErr`]s for any functions
     /// that can't be guaranteed to return properly.
-    pub fn resolve(
+    fn resolve(
         mut self,
         ast: &Vec<Decl<'a>>
     ) -> (Vec<SimpleSpan>, Vec<ControlFlowErr<'a>>) {

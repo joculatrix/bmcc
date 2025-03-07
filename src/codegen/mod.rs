@@ -2,7 +2,7 @@
 //!
 //! Binary linking relies on existing C compiler toolchains (Clang, GCC, MSVC)
 //! due to the use of the C library's `printf()` function for print statements.
-use crate::llvm;
+use crate::{llvm, AstVisitor};
 use std::{error::Error, fs::File, io::Write, path::PathBuf};
 use inkwell::{context::Context, module::Module, targets::{FileType, TargetMachine}};
 
@@ -35,19 +35,19 @@ pub fn codegen(ast: &Vec<Decl<'_>>, config: EmitConfig) -> Result<(), Box<dyn Er
 
     module.set_data_layout(&machine.get_target_data().get_data_layout());
 
-    let visitor = llvm::LlvmGenVisitor::new(&ctxt, &module, &builder);
-    let errs = visitor.resolve(ast);
-    if errs.len() != 0 {
-        let num_errs = errs.len();
-        errs.into_iter().for_each(|err| {
-            eprintln!(
-                "{} {}",
-                <str as yansi::Paint>::red("LLVM:").bold(),
-                err,
-            );
+    llvm::LlvmGenVisitor::new(&ctxt, &module, &builder)
+        .visit(ast)
+        .unwrap_or_else(|errs| {
+            let num_errs = errs.len();
+            errs.into_iter().for_each(|err| {
+                eprintln!(
+                    "{} {}",
+                    <str as yansi::Paint>::red("LLVM:").bold(),
+                    err,
+                );
+            });
+            super::exit_from_errs(num_errs);
         });
-        super::exit_from_errs(num_errs);
-    }
 
     emit(config, &machine, &module)?;
 

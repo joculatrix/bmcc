@@ -60,17 +60,19 @@ order to link the binary with the C library, allowing B-Minor's backend to simpl
 
 ## Visitors
 
-Though they might not be identical to their object-oriented counterparts in languages
-such as Java (due to the lack of a central interface to define how every visitor
-should be implemented; this proved tricky due to needing to use the return values of
-recursive calls and different passes needing those return values to be different types),
-all analysis and modification passes I make against the AST are done
-with separate structs I call "visitors", inspired by the pattern's method of
-applying algorithms to objects without adding the methods to the objects themselves.
-This is a minor shift in perspective from the C implementation described by Thain,
-wherein everything has equal presence as a struct associated function. Using Rust
-to allow for separating different functionality into different `impl` blocks or
-separate objects entirely feels much nicer (sorry, C).
+Though they might not be identical to the traditional object-oriented method of
+implementing the visitor pattern*, all analysis and modification passes I make
+against the AST are done with separate structs I call "visitors", inspired by the
+pattern's method of applying algorithms to objects without adding the methods to
+the objects themselves. This is a minor shift in perspective from the C
+implementation described by Thain, wherein everything has equal presence as a
+struct associated function. Using Rust to allow for separating different
+functionality into different `impl` blocks or separate objects entirely feels
+much nicer (sorry, C).
 
-Each visitor recursively visits each part of the AST, accumulating a list of
-unrecoverable errors which it emits at the end.
+*Namely, there isn't a central interface that defines how the visitor visits each
+part of the AST. Because each pass has different needs in terms of return types,
+doing this would get unwieldy very quickly. There are still traits implemented
+by the visitors - `AstVisitor` or `AstMutVisitor` - but they only define a single
+`visit()` method that performs the entire traversal. This is simpler, and external
+code doesn't really need to know about the details of each traversal anyway.

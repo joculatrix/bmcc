@@ -1,3 +1,5 @@
+use crate::AstVisitor;
+
 use super::*;
 
 use inkwell::IntPredicate;
@@ -29,6 +31,17 @@ pub struct LlvmGenVisitor<'a, 'ctx> {
     curr_fn: Option<FunctionValue<'ctx>>,
 }
 
+impl<'a, 'ctx> AstVisitor<'_, (), BuilderError> for LlvmGenVisitor<'a, 'ctx> {
+    fn visit(self, ast: &Vec<ast::Decl<'_>>) -> Result<(), Vec<BuilderError>> {
+        let errs = self.resolve(ast);
+        if errs.is_empty() {
+            Ok(())
+        } else {
+            Err(errs)
+        }
+    }
+}
+
 impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
     pub fn new(
         context: &'ctx Context,
@@ -44,7 +57,7 @@ impl<'a, 'ctx> LlvmGenVisitor<'a, 'ctx> {
         }
     }
 
-    pub fn resolve(mut self, ast: &Vec<Decl<'_>>) -> Vec<BuilderError> {
+    fn resolve(mut self, ast: &Vec<Decl<'_>>) -> Vec<BuilderError> {
         let mut errs = vec![];
 
         for decl in ast {

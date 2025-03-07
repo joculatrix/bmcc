@@ -1,3 +1,5 @@
+use crate::AstMutVisitor;
+
 use super::*;
 
 /// Type for traversing the AST and resolving variable/function names to
@@ -21,18 +23,8 @@ pub struct NameResVisitor<'a> {
     fn_var_count: usize,
 }
 
-impl<'a> NameResVisitor<'a> {
-    pub fn new() -> NameResVisitor<'a> {
-        NameResVisitor {
-            errs: vec![],
-            symbol_table: SymbolTable::new(),
-            fn_var_count: 0,
-        }
-    }
-
-    /// Runs the name resolution traversal of the AST, returning any errors
-    /// generated, and consumes the `NameResVisitor` in the process.
-    pub fn resolve(mut self, ast: &mut Vec<Decl<'a>>) -> Vec<NameResErr<'a>> {
+impl<'a> AstMutVisitor<'a, (), NameResErr<'a>> for NameResVisitor<'a> {
+    fn visit(mut self, ast: &mut Vec<Decl<'a>>) -> Result<(), Vec<NameResErr<'a>>> {
         self.symbol_table.scope_enter(); // enter global scope
         for decl in ast {
             self.visit_decl(decl);
@@ -56,8 +48,24 @@ impl<'a> NameResVisitor<'a> {
         }
 
         self.symbol_table.scope_exit();
-        self.errs
+        
+        if self.errs.is_empty() {
+            Ok(())
+        } else {
+            Err(self.errs)
+        }
     }
+}
+
+impl<'a> NameResVisitor<'a> {
+    pub fn new() -> NameResVisitor<'a> {
+        NameResVisitor {
+            errs: vec![],
+            symbol_table: SymbolTable::new(),
+            fn_var_count: 0,
+        }
+    }
+
 
     fn visit_decl(&mut self, decl: &mut Decl<'a>) {
         match decl {
